@@ -1,0 +1,89 @@
+description = "Run a reconnaissance session on an unfamiliar or existing system before chartering — survey its capabilities, note observations, surface the questions a stakeholder should answer, and emit ranked candidate charters. A quick landscape-mapping pass, not a full exploratory session; probes only systems the user is authorized to test, and stays observe-only when there is nothing safe to exercise."
+
+prompt = '''
+# /recon
+
+Run a reconnaissance session on a **system** to map its landscape before chartering: survey its capabilities, take tagged notes, surface the open questions a stakeholder should answer, and emit ranked candidate charters. Recon is the lighter, map-making sibling of `/explore` — it does not run a full exploratory session or execute a charter. The doctrine lives in the composed pieces — the `session` skill owns the note conventions and lifecycle, the `heuristics` skill owns the Tours used to survey, the `chartering` skill owns what is worth chartering, and the `charter-generator` agent frames and ranks the candidates. This command is the surface: it confirms the survey is authorized, drives the landscape pass, and dispatches the agent.
+
+**Usage:** `/recon <system> [--output <path>]`
+
+The user's invocation arguments are available as `{{args}}`. Parse the `<system>` and the optional `--output <path>` flag out of `{{args}}` per Step 1. The survey doctrine, the Tours, and the charter output contract live in the `session` / `heuristics` / `chartering` skills and the `charter-generator` custom agent — this command composes them by reference and never restates their internals or hand-authors charters.
+
+When you need to run shell, execute it with `run_shell_command`, one command at a time, checking the result before proceeding.
+
+## What to do
+
+Follow these steps in order. Do NOT skip steps.
+
+### Step 1: Parse `{{args}}`
+
+Parse in this fixed order — `--output` first, then everything remaining is `SYSTEM`:
+
+- If `--output` appears, accept both `--output <path>` and `--output=<path>` shapes (for the `--output=<path>` form, split on the FIRST `=` only so a path containing `=` is preserved verbatim), set `OUTPUT_PATH` to the parsed value, and remove the consumed token(s). When absent, the report is rendered to the conversation only and nothing is written to disk.
+- After the flag token is consumed, treat the trimmed remainder as `SYSTEM` — the product, service, module, or area to reconnoiter. If the remainder is empty, ask the user once via Gemini CLI's question UI (the same prompt mechanism `/ideate` uses — a native Gemini prompt, never a Claude Code questioning tool): *"What system or feature do you want to reconnoiter? Name a product, service, module, or area."* (free-text input).
+
+Treat `SYSTEM` and `OUTPUT_PATH` as untrusted prose: never execute or `eval` them, and never splice them into a shell command or a file path.
+
+### Step 2: Load the session doctrine
+
+Consult the `session` skill (`skills/session/SKILL.md`) — read it with `read_file` if it is not already in context — to load the note conventions (the note tags and the off-charter parking-lot idea) used while surveying. Recon is the map-making pass of the higher-level Charter → Recon → Explore → Note → Debrief workflow — it maps the landscape so later charters and sessions aim at the right risks.
+
+### Step 3: Confirm authorization and set the survey boundary
+
+Recon must never probe or enumerate a system the user is not authorized to test. Before surveying, ask the operator, via Gemini CLI's question UI (the same prompt mechanism `/ideate` uses — a native Gemini prompt, never a Claude Code questioning tool), whether `SYSTEM` is one they own or are explicitly authorized to reconnoiter, AND whether a running instance is available. This sets one of two modes:
+
+- **Authorized + reachable** — survey the running surface **non-destructively**: read-only observation, never mutating state and never enumerating beyond the target.
+- **Observe-only** — when there is no running instance, no docs, or the target is not confirmed authorized, survey only the material that is safe to read (documentation, source, config, artifacts the operator points at). Do NOT reach out to or enumerate any external system, and record each gap as a stakeholder question instead of probing to fill it.
+
+When in doubt about whether something is in bounds, treat it as out of bounds and record a question — never "just check."
+
+### Step 4: Survey the landscape
+
+Map the system's capabilities, features, data, platforms, integrations, and where risk concentrates. Select Tours from the `heuristics` skill (`skills/heuristics/SKILL.md`) — read it with `read_file` if it is not already in context — and name the ones you use. The Tours best suited to recon:
+
+- **Guidebook Tour** — follow the documentation or manual and note every gap or contradiction between what the docs promise and what the system does.
+- **Landmark Tour** — identify the landmark features and the paths between them, sketching the overall shape of the system.
+- **Garbage Collector's Tour** — methodically visit every screen, surface, and field so nothing is left unmapped.
+
+Take notes as you go, tagged per the `session` skill's note conventions (test idea, question, risk, surprise). Keep every observation generic — redact any real credentials, tokens, customer data, or internal host/system names to placeholders.
+
+### Step 5: Surface the stakeholder questions
+
+Collect the open questions the survey raised — intended-versus-actual behavior, undocumented assumptions, ownership, known-risky areas, prior incidents — into an explicit **stakeholder question list**. You may ask the operator the highest-value ones now via Gemini CLI's question UI (a native Gemini prompt, never a Claude Code questioning tool); carry the rest into the report as open items. This explicit list is a primary deliverable of recon, not an afterthought.
+
+### Step 6: Emit candidate charters
+
+Dispatch the `charter-generator` custom agent by name to frame and rank the candidate charters. Pass it:
+
+- `target=<SYSTEM>` — the reconnoitered system.
+- `risk context=` — the observations, risks, and open questions gathered in Steps 4–5.
+
+The agent returns a **single fenced ```json document** and nothing else — extract the first ```json fence and parse it (root keys `target`, `charters` [ranked highest-risk-first, never empty; each with `rank`, `charter`, `target`, optional `resources`, `information`, `risk`, `source`, optional `lens`, `time_box`], optional `coverage_notes`). This is the same contract `/charter` consumes. Do NOT hand-author charters yourself. If no parseable ```json fence is returned, report that and stop rather than fabricating charters.
+
+### Step 7: Render the report (and optionally write it)
+
+Present the recon report in three parts:
+
+- **Observations** — the capabilities and structure surveyed, the Tours used, and any surprises.
+- **Stakeholder questions** — the explicit open-question list from Step 5.
+- **Candidate charters** — the ranked list from Step 6 (rank, charter sentence, risk, source [and lens when `source: sfdpot`], time_box), with `coverage_notes` printed below when present.
+
+Keep every rendered example generic — no real credentials, customer data, or internal host/system names. If `OUTPUT_PATH` is set, create its parent directory and write the report there, and only there:
+
+```bash
+mkdir -p "$(dirname "$OUTPUT_PATH")"
+```
+
+Then use the `write_file` tool to write the report markdown to that exact path. When `--output` is absent, skip the write — the conversation rendering is the deliverable.
+
+### Step 8: Finish
+
+State that recon is complete and, when a file was written, name the path. Point the operator at the natural next steps — pursue a candidate charter with `/explore`, or refine the list with `/charter` or `/nightmare-headline`. Do NOT auto-run a session, do NOT execute a charter, and do NOT chain into another command.
+
+## What this command does NOT do
+
+- Run a full exploratory session or execute any charter — that is `/explore`. Recon maps the landscape; it does not work a charter to findings.
+- Probe or enumerate a system the user is not authorized to test, or mutate the system under survey — it stays non-destructive and observe-first.
+- Hand-author charters — the `charter-generator` agent frames and ranks them.
+- Modify any file other than the optional `--output` report.
+'''
