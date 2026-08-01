@@ -6,7 +6,7 @@ Everything below is an **externally verifiable fact** — what was actually obse
 
 > **Charter:** Explore the CSV card import with malformed and oversized files to discover how the parser fails and whether it silently drops rows or corrupts existing board data.
 >
-> **Tester / date / duration:** Dana Rivera · 2026-05-14 · 90-minute time-box
+> **Tester / date / budget:** `explorer` custom agent (stride-gemini-exploratory-testing) · 2026-05-14 · 12-probe budget, 8 probes attempted
 
 ---
 
@@ -33,11 +33,11 @@ The CSV card-import wizard end to end (upload → column mapping → commit) aga
 
 | Letter | Notes |
 |---|---|
-| **P — Past** | Ran Charter 1 as a 90-minute time-box. Seeded a demo board with 30 cards, then imported a battery of malformed, empty, oversized, and duplicate CSVs, checking the existing card count before and after each destructive run. ~15% of the box was setup, ~55% testing, ~30% investigating and writing up bugs; ~20% went to valuable off-charter detours. |
+| **P — Past** | Ran Charter 1 as a single budgeted session (12-probe budget, 8 probes attempted, 34 tool calls). Seeded a demo board with 30 cards, then imported a battery of malformed, empty, oversized, and duplicate CSVs, checking the existing card count before and after each destructive run. 6 of the 8 probes served the charter and 2 were valuable off-charter detours; 6 of the 8 produced something worth recording. Stopped on `charter_quiet` with 4 probes unspent. |
 | **R — Results** | Covered the full import wizard for one tenant on one browser. Found 3 bugs (2 major, 1 minor), 3 open questions, and 2 parking-lot items that became candidate charters. Confirmed the headline risk (corruption of existing data) did **not** reproduce. |
 | **O — Obstacles** | No client-side file-size limit made generating a "too big" case a guessing game. The 0-byte 500 error page gave no diagnostic detail. No staging data-reset button, so each destructive run needed a manual re-seed. |
 | **O — Outlook** | Next sessions: run Charter 2 (idempotency under interruption) and Charter 4 (cross-tenant import authorization) — both high-risk and untouched here. File the two parking-lot charters (export filename handling, duplicate column mapping). Recommend a product decision on max file size and on the empty-file 500. |
-| **F — Feelings** | Uneasy about the import path. Two independent ways to silently lose or duplicate a user's data turned up inside 90 minutes with only mild provocation, which suggests the parser's error handling was never a design focus. My instinct is that the authorization charter (4) will surface something too — worth prioritizing. |
+| **F — Feelings** | Uneasy about the import path. Two independent ways to silently lose or duplicate a user's data turned up within the first few probes with only mild provocation, which suggests the parser's error handling was never a design focus. My instinct is that the authorization charter (4) will surface something too — worth prioritizing. |
 
 ---
 

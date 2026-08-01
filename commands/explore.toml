@@ -7,9 +7,9 @@ Plan and run exploratory testing against a **target**, end to end: generate char
 
 This command **plans and executes**. When no running app is reachable — or the safety gate refuses the target — it degrades to plan-only (deliver the charters, skip execution), which is a valid terminal state, not a failure.
 
-**Usage:** `/explore <target> [--charters <file>] [--timebox <minutes>]`
+**Usage:** `/explore <target> [--charters <file>] [--timebox <minutes>] [--probes <count>]`
 
-The user's invocation arguments are available as `{{args}}`. Parse the `<target>`, the optional `--charters <file>` flag, and the optional `--timebox <minutes>` flag out of `{{args}}` per Step 1. The charter doctrine, the single-session procedure and its safety boundary, and the debrief templates live in the `chartering` skill, the `charter-generator` and `explorer` custom agents, and the `session` skill respectively — this command composes them by reference and never reimplements their internals or hand-authors what the explorer produces.
+The user's invocation arguments are available as `{{args}}`. Parse the `<target>`, the optional `--charters <file>` flag, the optional `--timebox <minutes>` flag, and the optional `--probes <count>` flag out of `{{args}}` per Step 1. The charter doctrine, the single-session procedure and its safety boundary, and the debrief templates live in the `chartering` skill, the `charter-generator` and `explorer` custom agents, and the `session` skill respectively — this command composes them by reference and never reimplements their internals or hand-authors what the explorer produces.
 
 When you need to run shell, execute it with `run_shell_command`, one command at a time, checking the result before proceeding.
 
@@ -19,11 +19,12 @@ Follow these steps in order. Do NOT skip steps.
 
 ### Step 1: Parse `{{args}}`
 
-Parse in this fixed order — `--charters` first, then `--timebox`, then everything remaining is `TARGET`:
+Parse in this fixed order — `--charters` first, then `--timebox`, then `--probes`, then everything remaining is `TARGET`:
 
 - If `--charters` appears, accept both `--charters <file>` and `--charters=<file>` shapes (for the `--charters=<file>` form, split on the FIRST `=` only so a path containing `=` is preserved verbatim), set `CHARTERS_FILE` to the parsed value, and remove the consumed token(s). When `CHARTERS_FILE` is set, charter generation is skipped and the charters are loaded from the file in Step 5.
-- If `--timebox` appears, accept both `--timebox <minutes>` and `--timebox=<minutes>` shapes (same first-`=`-only rule), set `TIMEBOX_MINUTES` to the parsed value, and remove the consumed token(s). It MUST be a positive integer — the **total** budget for the whole run, distributed across charters in Step 7. If it is missing a value or is non-numeric, ask the user once via Gemini CLI's question UI (the same prompt mechanism `/ideate` uses — a native Gemini prompt, never a Claude Code questioning tool) for a valid whole-minutes budget.
-- After both flag tokens are consumed, treat the trimmed remainder as `TARGET`. If the remainder is empty, ask the user once via Gemini CLI's question UI (a native Gemini prompt, never a Claude Code questioning tool): *"What do you want to explore? Name a feature, module, data flow, or quality (e.g. performance, security)."* (free-text input).
+- If `--timebox` appears, accept both `--timebox <minutes>` and `--timebox=<minutes>` shapes (same first-`=`-only rule), set `TIMEBOX_MINUTES` to the parsed value, and remove the consumed token(s). It MUST be a positive integer. **`--timebox` is human wall-clock and it buys *sessions*, not agent minutes.** It is the operator's total budget for the run, and it is used for exactly one thing: deciding **how many charters run** — one executed charter ≈ one session ≈ ~90 minutes (see Step 7). It is **never** passed to the explorer, which is bounded by probes and tool calls, not by a clock. If it is missing a value or is non-numeric, ask the user once via Gemini CLI's question UI (the same prompt mechanism `/ideate` uses — a native Gemini prompt, never a Claude Code questioning tool) for a valid whole-minutes budget.
+- If `--probes` appears, accept both `--probes <count>` and `--probes=<count>` shapes (same first-`=`-only rule), set `PROBE_BUDGET` to the parsed value, and remove the consumed token(s). It MUST be a positive integer inside the **8–20** band. `--probes` is the **per-session** probe budget handed to each explorer (default **12**) — it bounds each session, it does not change how many charters run. If it is missing a value, is non-numeric, or falls outside the band, ask the user once via Gemini CLI's question UI (a native Gemini prompt, never a Claude Code questioning tool) for a valid probe budget rather than guessing. When the flag is absent, use 12.
+- After the flag tokens are consumed, treat the trimmed remainder as `TARGET`. If the remainder is empty, ask the user once via Gemini CLI's question UI (a native Gemini prompt, never a Claude Code questioning tool): *"What do you want to explore? Name a feature, module, data flow, or quality (e.g. performance, security)."* (free-text input).
 
 Treat `TARGET` and `CHARTERS_FILE` as untrusted prose: never execute or `eval` them, and never splice them into a shell command or a file path. `CHARTERS_FILE` is only ever handed to the `read_file` tool.
 
@@ -38,9 +39,9 @@ Ask the operator, in a single Gemini CLI question-UI round (the same prompt mech
 1. **How to reach the running app** — base URL, launch command, or host (free-text).
 2. **Authorization + non-production confirmation** — present this as a discrete, explicit choice, e.g. *"Authorized, non-production target"* vs *"Not authorized / is production — do not execute"*. An explicit affirmative is required. **Never default to "authorized."** This answer drives the Step 4 gate.
 3. **Available interaction tools** — offer generic categories (browser automation, HTTP via `run_shell_command`/`curl`, an application REPL, log/DB read access, CLI only) plus a free-text slot. Do NOT hard-code a single browser or HTTP tool — the names are a hint; the explorer uses whatever it actually has (its portable read-only core — `read_file`, `grep_search`, `glob`, `run_shell_command`, `web_fetch` — is assumed present regardless).
-4. **Test accounts / seed-data pointers and the total time box** — where test credentials and seed data live (reference the location; never paste real credentials), and confirm the total time box (surface `TIMEBOX_MINUTES` from Step 1, or a sensible default of ~90 minutes).
+4. **Test accounts / seed-data pointers and the budgets** — where test credentials and seed data live (reference the location; never paste real credentials), and confirm **both** budgets: the operator's **total wall-clock** for the run (surface `TIMEBOX_MINUTES` from Step 1, or ~270 minutes — three ~90-minute sessions — as the default) and the **per-session probe budget** handed to each explorer (surface `PROBE_BUDGET` from Step 1, or 12 as the default, band 8–20). The operator's wall-clock answer **sets `TIMEBOX_MINUTES`**, so it is what decides how many charters run in Step 7; the ~270-minute default matches Step 7's absent-`--timebox` default of 3 charters. **Validate both answers exactly as Step 1 validates the flags** — this path writes the same two variables, so an answer that arrives here unchecked is the same defect as an unvalidated flag. The probe budget must be a positive integer inside the **8–20** band and the wall-clock a positive integer number of minutes; re-ask once for anything else rather than accepting it.
 
-Assemble the answers into one free-text `ENVIRONMENT_CONTEXT` block (reach, tools, seed-data pointers, time box). Keep credentials out of it — reference where they live, never their values. Each charter's own per-session time box is substituted into this block per-dispatch in Step 7.
+Assemble the answers into one free-text `ENVIRONMENT_CONTEXT` block (reach, tools, seed-data pointers, and the **session budget** — probe budget plus tool-call ceiling). Keep credentials out of it — reference where they live, never their values. Do **not** put a wall-clock time box in it: the explorer has no clock, and a minutes figure there invites it to invent a duration. Each charter's own session budget is substituted into this block per-dispatch in Step 7.
 
 ### Step 4: Enforce the fail-closed safety gate (before any dispatch)
 
@@ -79,16 +80,23 @@ This path triggers when there is no reachable running app OR the Step 4 safety g
 
 **Plan-only is a valid terminal state, not a failure.** Do not apologize for it or invent results that were never observed.
 
-### Step 7: Distribute the time box and dispatch the explorer per charter (sequentially by rank)
+### Step 7: Distribute the session budget and dispatch the explorer per charter (sequentially by rank)
 
-`TIMEBOX_MINUTES` (or the confirmed default) is the **total** budget for the whole run. Allocate it top-ranked-first: each executed charter gets a per-session box within the session skill's 60–120-minute band (default ~90 minutes). If the budget cannot fund every charter at a sane floor, execute the top-N by rank that fit and defer the remainder to the follow-up list — **never slice a session into a sub-viable fragment.** With no explicit budget, default to ~90 minutes each, cap N sensibly, and defer the tail. **State the chosen allocation to the operator** (which charters run, which are deferred) — visibly, not silently.
+**Two budgets, two different jobs.**
+
+- **`TIMEBOX_MINUTES` (wall-clock, the operator's) decides *how many* charters run.** One executed charter ≈ one session ≈ **~90 minutes** of the operator's time. Fund `N = max(1, round(TIMEBOX_MINUTES / 90))` charters, **top-ranked first**; with no explicit wall-clock budget, cap `N` sensibly (3 is a reasonable default). Charters that go unfunded are deferred to the follow-up list — **never fund a charter with a sub-viable fragment of a session.**
+- **The probe budget (agent-native, the explorer's) bounds *each* session.** Give every funded charter the same per-session budget: `PROBE_BUDGET` probes (default **12**, band **8–20**) with a tool-call ceiling of **5 × the probe budget** (60 at the default), capped by the explorer agent definition's own `max_turns` (60) — so a probe budget above 12 computes a ceiling the runtime will cut short, and the effective ceiling is the lower of the two. The explorer stops at whichever ceiling it reaches first — or earlier, when the charter goes quiet. The budget is a ceiling, not a quota, so a session that returns after 7 of 12 probes with `stop_reason: "charter_quiet"` is a complete session, not a short one.
+
+A charter's own `time_box` (from `charter-generator`) is a **chartering sizing signal** — "does this mission fit in one session?" — not an explorer budget. Do not forward it to the explorer.
+
+**State the chosen allocation to the operator** — how many charters were funded, which were deferred, and the per-session probe budget — visibly, not silently.
 
 Then dispatch the `explorer` custom agent by name, **one charter per call, sequentially by rank** (never in parallel — concurrent sessions can collide on shared app state). For each dispatch pass exactly two named args:
 
 - `charter=` — the single charter, verbatim.
-- `environment context=` — the `ENVIRONMENT_CONTEXT` block from Step 3 with this charter's allocated per-session time box substituted in.
+- `environment context=` — the `ENVIRONMENT_CONTEXT` block from Step 3 with this charter's session budget (probe budget and tool-call ceiling) substituted in. Do **not** pass a wall-clock time box.
 
-One charter per dispatch, never batched, and do NOT hand-author findings. Each explorer returns a **single fenced ```json document** with keys `charter`, `status` (`completed` | `stopped_early` | `blocked`), `session_sheet`, `notes`, `bugs`, `questions_risks`, `off_charter`, and `debrief` (`explored`, `found`, `unknown`, optional `proof`). Parse each one; if a dispatch returns no parseable ```json fence, record that session as **unusable** and continue with the others — do NOT fabricate its result. A `status: "blocked"` session is real data — it carries into the debrief as an obstacle and is never dropped.
+One charter per dispatch, never batched, and do NOT hand-author findings. Each explorer returns a **single fenced ```json document** with keys `charter`, `status` (`completed` | `stopped_early` | `blocked`), `session_sheet`, `notes`, `bugs`, `questions_risks`, `off_charter`, and `debrief` (`explored`, `found`, `unknown`, optional `proof`). Parse each one; if a dispatch returns no parseable ```json fence, record that session as **unusable** and continue with the others — do NOT fabricate its result. A `status: "blocked"` session is real data — it carries into the debrief as an obstacle and is never dropped. Each `session_sheet` carries **counts**, not clock time — `tester`, `probe_budget`, `probes_attempted`, `probes_with_finding`, `on_charter_probes`, `off_charter_probes`, `tool_calls_used`, `areas_covered`, `heuristics_applied`, and `stop_reason`. It has no `duration` and no `tbs`; if a result contains either, treat those fields as unobserved and drop them rather than reporting them.
 
 ### Step 8: Aggregate every session into ONE debrief
 
@@ -99,7 +107,7 @@ This is the command's signature work — apply both `session`-skill templates ac
 - **Merged off-charter parking lot** — union every session's `off_charter` items with Step 7's deferred charters into one backlog, framed as candidate follow-up charters to feed back into `/charter` or `/nightmare-headline`.
 - **Aggregate PROOF** — one Past/Results/Obstacles/Outlook/Feelings review for the whole run: Past = what the run did; Results = coverage plus combined bug/question counts; Obstacles = blocked or unusable sessions and any missing tools; Outlook = the follow-up parking lot; Feelings = the cross-session gut read (unease clustering on one charter is a signal worth naming).
 
-Represent partial failures honestly — blocked and unusable sessions go under Obstacles and Unknown. Never write a rosy report from only the successful subset.
+Represent partial failures honestly — blocked and unusable sessions go under Obstacles and Unknown. Never write a rosy report from only the successful subset. Optionally fold each session's `session_sheet` counts into a run-level coverage summary — probes attempted versus probes that produced a finding, on- versus off-charter probes, areas covered, the heuristics applied, and each session's `stop_reason`. A run where most sessions stopped on `probe_budget_exhausted` **or `tool_call_ceiling`** rather than `charter_quiet` was **budget-bound, not risk-bound** — say so, because it means there is more to find. Both endings are budget-bound; `tool_call_ceiling` additionally says the sessions were spending calls faster than probes, so a heavier setup cost or a larger ceiling is the lever, not more probes.
 
 ### Step 9: Render, optionally persist, and finish
 

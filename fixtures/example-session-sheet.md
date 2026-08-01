@@ -1,6 +1,8 @@
 # Example SBTM session sheet
 
-A worked **Session-Based Test Management** sheet for **Charter 1** from [`example-charters.md`](example-charters.md), run against the *synthetic* Acme Board demo app at `http://demo.example.com`. All data is invented — no real users, hostnames, or credentials. The companion [`example-debrief.md`](example-debrief.md) reports this same session.
+A worked **Session-Based Test Management** sheet for **Charter 1** from [`example-charters.md`](example-charters.md), run by the `explorer` agent against the *synthetic* Acme Board demo app at `http://demo.example.com`. All data is invented — no real users, hostnames, or credentials. The companion [`example-debrief.md`](example-debrief.md) reports this same session.
+
+This is the sheet in its **agent-run** form: the session is bounded by a probe budget rather than a clock, so it reports counts the agent actually kept instead of a wall-clock duration and Task Breakdown Metric percentages. (A human-run sheet uses `TESTER / DATE / DURATION` plus TBS percentages — see the `session` skill; a human with a clock can report those honestly, an agent cannot.) The JSON contract behind this shape is `session_sheet` in [`agents/explorer.md`](../agents/explorer.md).
 
 Note tags used in the running log: `test-idea`, `question`, `risk`, `surprise`, `bug`, `off-charter`. Bugs and off-charter items also get their own sections below.
 
@@ -10,8 +12,17 @@ CHARTER
   how the parser fails and whether it silently drops rows or corrupts existing
   board data.
 
-TESTER / DATE / DURATION
-  Dana Rivera (tester) / 2026-05-14 / 90 min time-box
+TESTER / DATE
+  explorer custom agent (stride-gemini-exploratory-testing) / 2026-05-14
+
+SESSION BUDGET
+  Probe budget: 12 (band 8-20)        Tool-call ceiling: 60
+  Probes attempted: 8 (on-charter 6, off-charter 2)
+  Probes that produced a finding: 6 (the wrong-delimiter and header-only
+    files both behaved correctly and produced nothing worth recording)
+  Tool calls used: 34
+  Stopped: charter_quiet (4 of the 12 probes unspent - the budget is a
+    ceiling, not a quota)
 
 AREAS COVERED
   Import wizard: file upload, column mapping, commit step.
@@ -22,9 +33,8 @@ AREAS COVERED
   corruption of existing data.
   Platform: Chrome 124 on macOS; single demo tenant (ann@demo.example.com).
 
-TASK BREAKDOWN METRICS
-  Test: 55%   Bug: 30%   Setup: 15%
-  On-charter: 80%   Off-charter (opportunity): 20%
+HEURISTICS APPLIED
+  Violate Format, Goldilocks, Follow the Data, Interrupt
 
 NOTES
   [setup] Seeded board "Q2 Launch" with 30 cards from the sample CSV; verified
@@ -39,6 +49,9 @@ NOTES
   [test-idea] Interrupt / Resubmit: uploaded the same valid 30-row file twice.
   [bug] Second upload created 30 more cards — board now has 90 (30 seed + 30 +
     30). No "already imported" guard. -> see BUG-3.
+  [test-idea] Violate Format: uploaded a semicolon-delimited CSV where the
+    importer expects commas -> rejected at the column-mapping step with
+    "Could not detect columns". Clear, early, and non-destructive; no bug.
   [test-idea] Empty file and header-only file.
   [test-idea] header-only file -> "Import complete — 0 cards added" (reasonable).
   [surprise] Empty (0-byte) file -> generic 500 error page, not a friendly
@@ -82,7 +95,7 @@ QUESTIONS / RISKS
     The UI enforces none.
   - Empty (0-byte) file returns a raw 500 — is that an accepted edge or a bug
     to file? Needs a product decision.
-  - Cross-tenant write (Charter 4) was NOT exercised in this box — the risk of
+  - Cross-tenant write (Charter 4) was NOT exercised in this session — the risk of
     importing into a board you don't own remains open.
 
 OFF-CHARTER PARKING LOT

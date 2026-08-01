@@ -17,6 +17,14 @@ A session is:
 - **Uninterrupted** — no multitasking; the whole box is spent on this charter.
 - **Reviewable** — it ends in a session sheet and a debrief that someone else can read.
 
+### Who the box binds
+
+The 60–120 minute box is **human ergonomics** — a measure of how long a person stays sharp — and it holds for **human-run and paired sessions** (a tester alone, or a tester driving with an agent alongside). Those are the sessions whose sheet and Task Breakdown Metrics are filled in from a clock someone is actually watching.
+
+It does **not** bind an agent-run session. An agent does not lose focus at minute 90, and it cannot honestly measure elapsed time or how that time was spent — so an agent session is bounded by an **agent-native budget**: a probe budget and a tool-call ceiling, whichever is reached first. It reports **counts** — probes attempted, probes that produced a finding, on- versus off-charter probes — instead of wall-clock percentages. That contract lives in `agents/explorer.md`.
+
+Everything else in this skill applies unchanged to both kinds of session: the lifecycle, the note conventions, the off-charter parking lot, the stopping heuristics, and both debrief templates. Only the unit that bounds the session differs.
+
 ## The session lifecycle
 
 1. **Charter** — state the mission (target, resources, information sought). One charter.
@@ -44,7 +52,7 @@ Exploration constantly surfaces interesting things outside the current charter. 
 
 ## The SBTM session sheet
 
-The session's reviewable artifact. A minimal sheet:
+The session's reviewable artifact. A minimal **human-run** sheet:
 
 ```
 CHARTER
@@ -66,9 +74,11 @@ OFF-CHARTER PARKING LOT
   <interesting items outside this charter -> candidate charters>
 ```
 
+An agent-run session produces the same artifact as JSON, with counts in place of the duration and percentage lines — see the `session_sheet` contract in `agents/explorer.md`.
+
 ### Task Breakdown Metrics (TBS)
 
-Divide the session's time across three activities and report each as a rough percentage — precision isn't the point; the *shape* is:
+Divide the session's **wall-clock time** across three activities and report each as a rough percentage — precision isn't the point; the *shape* is:
 
 - **Test** (**T**) — test design and execution: the actual exploring.
 - **Bug** (**B**) — bug investigation and reporting: reproducing, isolating, writing up.
@@ -76,12 +86,14 @@ Divide the session's time across three activities and report each as a rough per
 
 Also report **on-charter vs. off-charter (opportunity) %** — how much of the box served the charter vs. valuable detours. A session that's 70% setup, or 60% off-charter, tells the team something about the product and the environment, not just the tester.
 
+TBS is a **human** metric: it needs a tester with a clock. An agent-run session conveys the same shape with counts it can actually keep — probes attempted, probes that produced a finding, on- versus off-charter probes (see *Who the box binds*).
+
 ## Stopping heuristics — when you have explored enough
 
 Stop the session (or the charter) when any of these holds:
 
 - **The charter has stopped surfacing new information** — probes keep confirming what you already know. Diminishing returns.
-- **The time box is up.** Stop, debrief, and charter a follow-up if risk remains.
+- **The box or the budget is up.** Stop, debrief, and charter a follow-up if risk remains.
 - **Remaining risk is acceptable** — what's left unexplored isn't worth a stakeholder's worry.
 - **You're blocked** — you need setup, data, access, or an answer you can't get now. Note the blocker and stop; don't burn the box spinning.
 

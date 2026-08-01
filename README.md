@@ -66,7 +66,9 @@ Run your first exploratory session end to end, against an app you are authorized
    /explore the CSV import with malformed and oversized files
    ```
 
-   `/explore` confirms the target is authorized and non-production, gathers the running-app context, dispatches the `explorer` agent for each charter under an absolute safety boundary, and aggregates every session into one debrief. The per-session record is an SBTM session sheet — see [`fixtures/example-session-sheet.md`](fixtures/example-session-sheet.md).
+   `/explore` confirms the target is authorized and non-production, gathers the running-app context, dispatches the `explorer` agent for each charter under an absolute safety boundary, and aggregates every session into one debrief. The per-session record is an SBTM session sheet — see [`fixtures/example-session-sheet.md`](fixtures/example-session-sheet.md) for a worked agent-run example.
+
+   `--timebox <minutes>` is **your** clock: it decides how many charters get funded (one session ≈ 90 minutes). Each explorer session itself is bounded by an agent-native **probe budget** — 12 probes by default, `--probes <count>` to change, band 8–20 — because an agent has no honest way to measure minutes.
 5. **Read the debrief.** You get an Explored/Found/Unknown summary, a PROOF review, a severity-ranked bug list, and a follow-up parking lot — see [`fixtures/example-debrief.md`](fixtures/example-debrief.md). To rebuild a debrief from raw notes later, run `/debrief`.
 
 Not sure what to charter yet? Start with `/recon` to survey an unfamiliar system, or `/nightmare-headline` to brainstorm the worst plausible outcome and turn it into charters.
@@ -100,10 +102,10 @@ Turn raw exploratory-session notes and findings into a stakeholder-ready debrief
 The knowledge core lives under `skills/`. The commands and agents defer to these skills rather than restating the doctrine:
 
 - **[`stride-exploratory-testing`](skills/stride-exploratory-testing/SKILL.md)** — the orchestrator and front door. Teaches the mental model (Tested = Checked + Explored), frames a time-boxed session, and routes each request to the right sub-skill or command.
-- **[`chartering`](skills/chartering/SKILL.md)** — deciding **what** to explore and framing it as a charter: the *Explore … with … to discover …* template, SFDPOT target enumeration, and the Nightmare Headline Game.
+- **[`chartering`](skills/chartering/SKILL.md)** — deciding **what** to explore and framing it as a charter: the *Explore … with … to discover …* template, SFDIPOT target enumeration, and the Nightmare Headline Game.
 - **[`heuristics`](skills/heuristics/SKILL.md)** — the single source of truth for test ideas: the general and web cheat sheets, the variable-spotting catalog, and Whittaker's Tours grouped by district. Turns a charter into specific probes.
 - **[`oracles`](skills/oracles/SKILL.md)** — deciding whether what you observed is a **bug**: Never/Always rules, consistency oracles, approximations for when the right answer is unknowable, and the HTSM quality-criteria checklist.
-- **[`session`](skills/session/SKILL.md)** — running a session end to end: time-boxing, the SBTM session sheet, Task Breakdown Metrics, note conventions, stopping heuristics, the off-charter parking lot, and both debrief templates.
+- **[`session`](skills/session/SKILL.md)** — running a session end to end: time-boxing, the SBTM session sheet, Task Breakdown Metrics, note conventions, stopping heuristics, the off-charter parking lot, and both debrief templates. The wall-clock box and Task Breakdown Metrics bind **human-run and paired** sessions; an agent-run session is bounded by an agent-native probe budget instead.
 
 The `heuristics` skill is the canonical catalog; [`HEURISTICS.md`](HEURISTICS.md) at the root is a one-page pointer into it, not a copy.
 
@@ -111,8 +113,8 @@ The `heuristics` skill is the canonical catalog; [`HEURISTICS.md`](HEURISTICS.md
 
 Two custom agents live at `agents/<name>.md` and are auto-discovered by Gemini CLI. They are dispatched by the commands, not invoked directly from a user prompt:
 
-- **[`charter-generator`](agents/charter-generator.md)** — read-only. Turns a target into a risk-ranked list of well-formed charters using SFDPOT and the Nightmare Headline Game, and returns them as structured data. Dispatched by `/charter` and `/nightmare-headline`. It generates charters and runs nothing.
-- **[`explorer`](agents/explorer.md)** — runs one time-boxed exploratory session per charter against a running app, applies named heuristics, judges results with oracles, records an SBTM session sheet, and returns structured findings. Operates under an absolute safety boundary — it exercises the app but never runs destructive commands and never touches production or unauthorized systems. Dispatched by `/explore`.
+- **[`charter-generator`](agents/charter-generator.md)** — read-only. Turns a target into a risk-ranked list of well-formed charters using SFDIPOT and the Nightmare Headline Game, and returns them as structured data. Dispatched by `/charter` and `/nightmare-headline`. It generates charters and runs nothing.
+- **[`explorer`](agents/explorer.md)** — runs one budgeted exploratory session per charter against a running app, applies named heuristics, judges results with oracles, records an SBTM session sheet, and returns structured findings. Operates under an absolute safety boundary — it exercises the app but never runs destructive commands and never touches production or unauthorized systems. Dispatched by `/explore`.
 
 ## How this relates to `stride-gemini`
 
@@ -124,7 +126,7 @@ This extension packages **established exploratory-testing practice** — the acc
 
 - **Session-Based Test Management (SBTM)** and the **PROOF** debrief mnemonic — **James Bach** and **Jonathan Bach**. The session sheet, Task Breakdown Metrics, and time-boxed session discipline in the `session` skill derive from SBTM.
 - **Tours** — **James Whittaker** (*Exploratory Software Testing*). The tours grouped by tourist district in the `heuristics` skill are his.
-- **Heuristic Test Strategy Model (HTSM)** — **James Bach**. The SFDPOT coverage lens (in `chartering`) and the quality-criteria checklist (in `oracles`) come from the HTSM.
+- **Heuristic Test Strategy Model (HTSM)** — **James Bach**. The SFDIPOT coverage lens (in `chartering`) and the quality-criteria checklist (in `oracles`) come from the HTSM.
 
 Where these skills quote or paraphrase, they use short, fair-use snippets and point back to the original work. Please consult the primary sources for the full treatment.
 

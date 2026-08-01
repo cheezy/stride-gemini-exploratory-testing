@@ -3,7 +3,7 @@ description = "Turn a target — a feature, module, requirement, data flow, or a
 prompt = '''
 # /charter
 
-Turn a **target** into a ranked list of exploratory-testing **charters** — missions of the form *"Explore `<target>` with `<resources>` to discover `<information>`"*, ordered highest-risk-first. The doctrine — the charter template, what makes a charter good, the charter sources, the Nightmare Headline Game, and SFDPOT — lives in the `chartering` skill (`skills/chartering/SKILL.md`); the generation procedure and JSON output contract live in the `charter-generator` agent (`agents/charter-generator.md`). This command is the surface: it parses the invocation arguments, dispatches the agent, renders the returned charters, and optionally writes them to a file.
+Turn a **target** into a ranked list of exploratory-testing **charters** — missions of the form *"Explore `<target>` with `<resources>` to discover `<information>`"*, ordered highest-risk-first. The doctrine — the charter template, what makes a charter good, the charter sources, the Nightmare Headline Game, and SFDIPOT — lives in the `chartering` skill (`skills/chartering/SKILL.md`); the generation procedure and JSON output contract live in the `charter-generator` agent (`agents/charter-generator.md`). This command is the surface: it parses the invocation arguments, dispatches the agent, renders the returned charters, and optionally writes them to a file.
 
 This command **generates** charters. It does not run a session or execute a charter — that is `/explore`.
 
