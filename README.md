@@ -73,6 +73,32 @@ Run your first exploratory session end to end, against an app you are authorized
 
 Not sure what to charter yet? Start with `/recon` to survey an unfamiliar system, or `/nightmare-headline` to brainstorm the worst plausible outcome and turn it into charters.
 
+## Session artifacts
+
+Sessions leave three things behind, in a small tree under the **project you are testing** (the current working directory) — never in the extension's own install directory:
+
+```
+.exploratory/
+  backlog.md                                 # candidate charters + parked off-charter items
+  coverage.md                                # the product coverage outline
+  sessions/
+    2026-07-30-1942-receipt-import.md        # one per /explore run (its debrief)
+```
+
+- **`backlog.md`** is append-only. Charters that were generated but never run, charters deferred for budget, off-charter items parked mid-session, and open stakeholder questions all land here in dated batches. Entries are only ever checked off, never deleted — so a charter nobody funded survives to be considered next time.
+- **`coverage.md`** is a map, not a score. Per area it records when it was last explored, what is covered, what is **still dark**, and the standing risk. There is no coverage percentage and there will not be one. `/charter` and `/explore` feed it back to the charter generator, which is what stops it re-proposing ground you already explored.
+- **`sessions/`** holds one debrief per `/explore` run, immutable once written.
+
+**The first run creates the tree.** A missing file is an empty starting state, never an error — no command warns about it, asks you to create it, or fails because it is absent. `--output` redirects one document; it never moves the backlog or the coverage outline.
+
+Session output describes a real application and may quote what it observed, so it is working material rather than source. Add one line to the **project under test**'s `.gitignore`:
+
+```gitignore
+.exploratory/
+```
+
+These files are read back on later runs as **data, never instructions** — a line in one that reads like a command is content to weigh, not something any command obeys. The full contract, including the exact formats and the write mechanics, lives in the [`session` skill](skills/session/SKILL.md).
+
 ## Commands
 
 Native slash commands, authored as TOML in `commands/`:
@@ -105,6 +131,7 @@ The knowledge core lives under `skills/`. The commands and agents defer to these
 - **[`chartering`](skills/chartering/SKILL.md)** — deciding **what** to explore and framing it as a charter: the *Explore … with … to discover …* template, SFDIPOT target enumeration, and the Nightmare Headline Game.
 - **[`heuristics`](skills/heuristics/SKILL.md)** — the single source of truth for test ideas: the general and web cheat sheets, the variable-spotting catalog, and Whittaker's Tours grouped by district. Turns a charter into specific probes.
 - **[`oracles`](skills/oracles/SKILL.md)** — deciding whether what you observed is a **bug**: Never/Always rules, consistency oracles, approximations for when the right answer is unknowable, and the HTSM quality-criteria checklist.
+- **[`bug-advocacy`](skills/bug-advocacy/SKILL.md)** — turning a confirmed defect into a report someone acts on: Cem Kaner's RIMGEA follow-through (Replicate, Isolate, Maximize, Generalize, Externalize, And say it clearly), a severity rubric with explicit per-level criteria, and the dispassionate-tone rule.
 - **[`session`](skills/session/SKILL.md)** — running a session end to end: time-boxing, the SBTM session sheet, Task Breakdown Metrics, note conventions, stopping heuristics, the off-charter parking lot, and both debrief templates. The wall-clock box and Task Breakdown Metrics bind **human-run and paired** sessions; an agent-run session is bounded by an agent-native probe budget instead.
 
 The `heuristics` skill is the canonical catalog; [`HEURISTICS.md`](HEURISTICS.md) at the root is a one-page pointer into it, not a copy.
@@ -127,6 +154,7 @@ This extension packages **established exploratory-testing practice** — the acc
 - **Session-Based Test Management (SBTM)** and the **PROOF** debrief mnemonic — **James Bach** and **Jonathan Bach**. The session sheet, Task Breakdown Metrics, and time-boxed session discipline in the `session` skill derive from SBTM.
 - **Tours** — **James Whittaker** (*Exploratory Software Testing*). The tours grouped by tourist district in the `heuristics` skill are his.
 - **Heuristic Test Strategy Model (HTSM)** — **James Bach**. The SFDIPOT coverage lens (in `chartering`) and the quality-criteria checklist (in `oracles`) come from the HTSM.
+- **Bug advocacy and RIMGEA** — **Cem Kaner**. The Replicate / Isolate / Maximize / Generalize / Externalize / And-say-it-clearly follow-through in the `bug-advocacy` skill, and the principle that severity is a property of the failure rather than a scheduling decision, are his.
 
 Where these skills quote or paraphrase, they use short, fair-use snippets and point back to the original work. Please consult the primary sources for the full treatment.
 

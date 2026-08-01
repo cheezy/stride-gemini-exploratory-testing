@@ -26,6 +26,7 @@ The knowledge core lives under `skills/`; readers usually do not activate these 
 - **`chartering`** — deciding **what** to explore: the *Explore … with … to discover …* template, SFDIPOT target enumeration, and the Nightmare Headline Game.
 - **`heuristics`** — the single canonical catalog of test ideas: general + web cheat sheets, the variable-spotting catalog, and Whittaker's Tours by district. `HEURISTICS.md` at the root is a one-page pointer into it, not a copy.
 - **`oracles`** — deciding whether an observed result is a **bug**: Never/Always rules, consistency oracles, approximations, and the HTSM quality-criteria checklist.
+- **`bug-advocacy`** — turning a confirmed defect into a report someone acts on: Cem Kaner's RIMGEA follow-through (Replicate, Isolate, Maximize, Generalize, Externalize, And say it clearly), the severity rubric every `severity` value comes from, and the dispassionate-tone rule.
 - **`session`** — running a session end to end: time-boxing, the SBTM session sheet, Task Breakdown Metrics, note conventions, stopping heuristics, and both debrief templates. The wall-clock box and Task Breakdown Metrics bind **human-run and paired** sessions; an agent-run session is bounded by a probe budget instead (see `agents/explorer.md`).
 
 ## Custom Agents

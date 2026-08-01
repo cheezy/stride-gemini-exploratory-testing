@@ -1,6 +1,6 @@
 ---
 name: stride-exploratory-testing
-description: Use when you want to test software the way a skilled human tester does — discovering risks, questions, and bugs that scripted or automated checks miss. This is the front door to the stride-exploratory-testing Gemini CLI extension — it teaches the mental model (Tested = Checked + Explored), frames a time-boxed session, and routes each request to the right sub-skill (chartering, heuristics, oracles, session) or TOML slash command (/charter, /nightmare-headline, /explore, /recon, /debrief). Invoke it when the user asks to "explore", "poke at", "do exploratory/manual testing on", "find bugs in", "charter a session for", or otherwise investigate a feature rather than confirm a known expectation.
+description: Use when you want to test software the way a skilled human tester does — discovering risks, questions, and bugs that scripted or automated checks miss. This is the front door to the stride-exploratory-testing Gemini CLI extension — it teaches the mental model (Tested = Checked + Explored), frames a time-boxed session, and routes each request to the right sub-skill (chartering, heuristics, oracles, bug-advocacy, session) or TOML slash command (/charter, /nightmare-headline, /explore, /recon, /debrief). Invoke it when the user asks to "explore", "poke at", "do exploratory/manual testing on", "find bugs in", "charter a session for", or otherwise investigate a feature rather than confirm a known expectation.
 skills_version: "1.0"
 ---
 
@@ -37,6 +37,8 @@ Every exploratory session runs on five engines. Each sub-skill deepens one or mo
 | **Variables** | The factors you can deliberately vary — data, state, sequence, timing, environment, configuration. | `heuristics` skill (variable catalog) |
 | **Oracles** | How you decide something is *wrong* — consistency heuristics, references, claims, user expectations. | `oracles` skill |
 | **Heuristics** | Idea generators that get you unstuck — cheat sheets, Tours, SFDIPOT, and other lenses. | `heuristics` skill |
+
+Two skills sit **around** that loop rather than inside it. `session` is the container that makes a run reportable — the lifecycle, the notes, the debrief, and the artifacts it leaves on disk. `bug-advocacy` picks up where the oracles stop: once a result is judged a defect, it owns the RIMGEA follow-through and the severity rubric that turn it into a report someone acts on.
 
 ## The session lifecycle (time-boxed)
 
@@ -77,6 +79,7 @@ Match the user's request to the right destination. The orchestrator frames and r
 | Get unstuck / generate test ideas / apply a cheat sheet, Tour, or SFDIPOT | **`heuristics`** skill |
 | Know the factors to vary (data, state, sequence, environment) | **`heuristics`** skill (variable catalog) |
 | Decide "is this actually a bug?" / apply consistency oracles | **`oracles`** skill |
+| Turn a confirmed defect into a report someone will act on / rate its severity | **`bug-advocacy`** skill |
 | Run a full time-boxed session with notes and a debrief | **`session`** skill |
 | Do a quick reconnaissance pass over an unfamiliar feature | **`/recon`** command |
 | Run an exploratory session end-to-end (plan and execute) | **`/explore`** command |

@@ -75,7 +75,7 @@ printf 'plugin root: %s\n\n' "$PLUGIN_ROOT"
 # --- Skills -----------------------------------------------------------------
 
 printf 'Skill frontmatter\n'
-for skill in stride-exploratory-testing chartering heuristics oracles session; do
+for skill in stride-exploratory-testing chartering heuristics oracles bug-advocacy session; do
   check_md_frontmatter "${PLUGIN_ROOT}/skills/${skill}/SKILL.md" "skill '${skill}'"
 done
 

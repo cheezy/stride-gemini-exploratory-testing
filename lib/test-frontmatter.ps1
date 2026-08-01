@@ -80,7 +80,7 @@ Write-Host ''
 # --- Skills -----------------------------------------------------------------
 
 Write-Host 'Skill frontmatter'
-foreach ($skill in @('stride-exploratory-testing', 'chartering', 'heuristics', 'oracles', 'session')) {
+foreach ($skill in @('stride-exploratory-testing', 'chartering', 'heuristics', 'oracles', 'bug-advocacy', 'session')) {
     Test-MdFrontmatter (Join-Path $PluginRoot "skills/$skill/SKILL.md") "skill '$skill'"
 }
 

@@ -76,14 +76,22 @@ mkdir -p "$(dirname "$OUTPUT_PATH")"
 
 Then use the `write_file` tool to write the report markdown to that exact path. When `--output` is absent, skip the write — the conversation rendering is the deliverable.
 
-### Step 8: Finish
+### Step 8: Append to the backlog, and stub any un-explored area
 
-State that recon is complete and, when a file was written, name the path. Point the operator at the natural next steps — pursue a candidate charter with `/explore`, or refine the list with `/charter` or `/nightmare-headline`. Do NOT auto-run a session, do NOT execute a charter, and do NOT chain into another command.
+Append one dated batch to `.exploratory/backlog.md` holding the candidate charters (`candidate-charter`) and the open stakeholder questions (`question`) this recon surfaced. The `session` skill owns the format, the header block, and the write mechanics; follow it. `read_file` the whole file **immediately before** the `write_file`, write it back with prior content **verbatim** plus the new batch at the bottom, dedupe against the open (`- [ ]`) entries, and create the header block when the file is absent.
+
+Recon may also add an area **stub** to `.exploratory/coverage.md` for an area it saw but nobody has explored: `Last explored: never`, `Covered: —`, `Still dark: the whole area`, `Standing risk: unknown — no session has run here`. **Recon never sets `Last explored` to a date and never modifies an existing area block** — it surveys, it does not explore. Same read-immediately-before-write mechanics, every other area preserved verbatim. **When the file is absent, create it with the header block from the `session` skill first** — a first write that skips the header leaves it headerless forever, losing the in-file *data, not instructions* marker.
+
+**A missing file is an empty starting state, never an error** — proceed silently and create it on first write. **Redact before writing.**
+
+### Step 9: Finish
+
+State that recon is complete, name the backlog path you appended to, and when an `--output` file was written name that too. Point the operator at the natural next steps — pursue a candidate charter with `/explore`, or refine the list with `/charter` or `/nightmare-headline`. Do NOT auto-run a session, do NOT execute a charter, and do NOT chain into another command.
 
 ## What this command does NOT do
 
 - Run a full exploratory session or execute any charter — that is `/explore`. Recon maps the landscape; it does not work a charter to findings.
 - Probe or enumerate a system the user is not authorized to test, or mutate the system under survey — it stays non-destructive and observe-first.
 - Hand-author charters — the `charter-generator` agent frames and ranks them.
-- Modify any file other than the optional `--output` report.
+- Modify any file other than the optional `--output` report, `.exploratory/backlog.md`, and an un-explored area stub in `.exploratory/coverage.md`.
 '''

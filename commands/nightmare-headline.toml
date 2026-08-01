@@ -71,13 +71,17 @@ mkdir -p "$(dirname "$OUTPUT_PATH")"
 
 Then use the `write_file` tool to write a markdown document that records `CHOSEN_HEADLINE`, the contributing causes, and the ranked charters (one section or table row per charter). Never write anywhere other than `OUTPUT_PATH`. When `--output` is absent, skip this step — the conversation rendering is the deliverable.
 
-### Step 9: Finish
+### Step 9: Append the charters to the backlog
 
-State that the charters are ready and, when a file was written, name the path. Remind the user that the un-chosen headlines from Step 3 are still worth chartering — run this command again for each — and point them at the natural next step: pick a charter and run it with `/explore`. Do NOT auto-run a session, do NOT execute a charter, and do NOT chain into another command.
+Append one dated batch of `candidate-charter` entries to `.exploratory/backlog.md`, with the chosen headline as a leading italic line above the bullets so the batch says what nightmare produced it. The `session` skill owns the format, the header block, and the write mechanics; follow it rather than inventing a shape. `read_file` the whole file **immediately before** the `write_file`, then write it back with prior content **verbatim** plus the new batch at the bottom — never reorder, reword, compact, or delete a prior entry. When the file is absent, create it with the header block first. Dedupe each entry against the open (`- [ ]`) entries. **A missing file is an empty starting state, never an error**, and **redact before writing**.
+
+### Step 10: Finish
+
+State that the charters are ready, name the backlog path you appended to, and when an `--output` file was written name that too. Remind the user that the un-chosen headlines from Step 3 are still worth chartering — run this command again for each — and point them at the natural next step: pick a charter and run it with `/explore`. Do NOT auto-run a session, do NOT execute a charter, and do NOT chain into another command.
 
 ## What this command does NOT do
 
 - Run an exploratory session or execute any charter — that is `/explore`.
 - Generate probes or judge findings — those are the `heuristics` and `oracles` skills.
-- Modify any file other than the optional `--output` document.
+- Modify any file other than the optional `--output` document and `.exploratory/backlog.md`.
 '''

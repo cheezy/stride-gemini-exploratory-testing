@@ -101,4 +101,4 @@ Keep every example **generic**: no real credentials, customer data, or internal 
 
 ## Handing off
 
-Once you have charters, the tester picks one and runs a time-boxed session with the `session` skill, generating probes with `heuristics` and judging them with `oracles`. Un-run charters go on a backlog; new charters discovered mid-session are added to it.
+Once you have charters, the tester picks one and runs a time-boxed session with the `session` skill, generating probes with `heuristics` and judging them with `oracles`. Un-run charters go on a backlog; new charters discovered mid-session are added to it. That backlog is a real file — `.exploratory/backlog.md`, defined by the `session` skill's *Session artifacts on disk* section — so a charter nobody funded this run survives to be considered on the next one, and the coverage outline beside it is what stops the generator re-proposing ground already explored.

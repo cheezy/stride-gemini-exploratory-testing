@@ -57,7 +57,7 @@ Produce the fuller session review using Jonathan Bach's SBTM PROOF mnemonic:
 
 If the notes are thin, still produce a **structured** report: fill each section with what the notes support, and state plainly what could not be determined (gaps go under Unknown and Obstacles). Do NOT pad with invented detail — a short, honest debrief is more useful than a fabricated full one.
 
-### Step 7: Render, optionally write, and finish
+### Step 7: Render and optionally write the report
 
 Present both templates — the Explored/Found/Unknown summary and the PROOF review. Keep every rendered detail generic — no real credentials, customer data, or internal host/system names. If `OUTPUT_PATH` is set, create its parent directory and write the report there, and only there:
 
@@ -65,14 +65,24 @@ Present both templates — the Explored/Found/Unknown summary and the PROOF revi
 mkdir -p "$(dirname "$OUTPUT_PATH")"
 ```
 
-Then use the `write_file` tool to write the report markdown to that exact path. When `--output` is absent, skip the write — the conversation rendering is the deliverable.
+Then use the `write_file` tool to write the report markdown to that exact path. When `--output` is absent, skip the write — the conversation rendering is the deliverable. Either way, the two shared artifacts are still updated in Step 8.
 
-Finish by pointing the operator at the natural next steps — feed the Outlook and parking-lot follow-ups into `/charter` or `/nightmare-headline`. Do NOT auto-run a session and do NOT chain into another command.
+### Step 8: Update the shared artifacts
+
+Both live under `.exploratory/` in the current working directory. The `session` skill owns their formats, header blocks, and write mechanics — follow it rather than inventing a shape. **A missing file is an empty starting state, never an error**: create it with its header block on the first write, say nothing about it, and never abort because it was absent. **Redact before writing** — no real credentials, tokens, customer data, or internal hostnames reach either file.
+
+**8a — append to the backlog.** Append one dated batch to `.exploratory/backlog.md` holding the parking-lot follow-ups and any open stakeholder questions these notes surfaced. `read_file` the whole file **immediately before** the `write_file` and write it back with prior content **verbatim** plus the new batch at the bottom; dedupe a `candidate-charter` against the open (`- [ ]`) entries first. Never reorder, reword, compact, or delete a prior entry.
+
+**8b — update the coverage outline.** For each area these notes honestly identify, update `.exploratory/coverage.md`: `Last explored` to today plus provenance, `Covered` merged and deduped, `Still dark` with answered items removed and newly-opened ones added (including everything under Unknown), and `Standing risk` refreshed from the bugs the notes report. Same read-immediately-before-write mechanics, every untouched area block preserved verbatim. **If the notes are too sparse to identify an area honestly, skip this and say so** — inventing an area name is exactly the fabrication Step 6 forbids.
+
+### Step 9: Finish
+
+Name every path you wrote, then point the operator at the natural next steps — feed the Outlook and parking-lot follow-ups into `/charter` or `/nightmare-headline`. Do NOT auto-run a session and do NOT chain into another command.
 
 ## What this command does NOT do
 
 - Run a session or drive a running app — that is `/explore`. Debrief only structures notes you already have.
 - Fabricate results — an unobserved result is reported under Unknown, never Found.
 - Leak secrets — real credentials, tokens, and private data are redacted to placeholders.
-- Modify any file other than the optional `--output` report.
+- Modify any file other than the optional `--output` report, `.exploratory/backlog.md`, and `.exploratory/coverage.md`.
 '''

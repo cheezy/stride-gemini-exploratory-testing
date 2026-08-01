@@ -68,27 +68,62 @@ NOTES
     "title" field without complaint. Parked as a candidate charter.
 
 BUGS
-  BUG-1 (major): Malformed CSV silently truncates the import.
+  BUG-1 (High): Malformed CSV silently truncates the import.
     Repro: import a 40-row CSV whose row 14 has an unclosed double-quote.
     Observed: only rows 1-13 import; the UI reports "Import complete" with no
       error and no indication rows were dropped.
     Why wrong (oracle: Never silently lose user data): a parse failure that
       discards 27 of 40 rows while reporting success violates a Never rule —
       the user believes all their tasks imported.
+    Minimal repro: a 2-row CSV whose first row has an unclosed quote — row 2
+      is dropped and "Import complete" is still shown. The 40-row file is not
+      needed; one malformed row ahead of one valid row reproduces it.
+    Worst observed: 27 well-formed rows silently discarded while the UI
+      reported success. Not demonstrated: whether the dropped rows can
+      overwrite existing cards — no corruption of the 30 seeded cards was
+      seen in any run.
+    Generalization: reproduces with any parse error, not just an unclosed
+      quote — a stray delimiter inside an unquoted field truncates at the same
+      point. Every row after the first bad one is lost, regardless of count.
+    Stakeholder impact: a user importing a backlog exported from another tool
+      believes all their tasks landed and has no signal that most did not.
+      They discover the loss only by counting cards by hand, and the source
+      file may be gone by then.
 
-  BUG-2 (minor): No progress feedback on large imports.
+  BUG-2 (Moderate): No progress feedback on large imports.
     Repro: import the 12 MB / 50k-row file.
     Observed: ~40s of frozen UI, no spinner or progress indicator; indistinguishable
       from a hang.
     Why wrong (oracle: consistency — Acme's other long operations show a
       spinner): a long op with no feedback reads as broken.
+    Minimal repro: any import over ~5 MB; the freeze scales with file size and
+      needs no particular content.
+    Worst observed: ~40s of unresponsive UI, after which the import completed
+      correctly. Nothing wrong survived it.
+    Generalization: not established — the other long operations that would
+      show whether this is systemic (export, bulk move) are outside this
+      charter, so they were parked rather than probed.
+    Stakeholder impact: a user importing a large board cannot tell the app
+      from a hang, and a plausible reaction — killing the tab and retrying —
+      lands them straight in BUG-3's duplicate import.
 
-  BUG-3 (major): Import is not idempotent; duplicate upload doubles the board.
+  BUG-3 (High): Import is not idempotent; duplicate upload doubles the board.
     Repro: import the same valid 30-row CSV twice.
     Observed: 30 duplicate cards created on the second import; no dedupe, no
       "this file was already imported" prompt.
     Why wrong (oracle: implicit expectation — a retried import should be safe):
       an interrupted-then-retried import would silently duplicate a whole board.
+    Minimal repro: import any 1-row CSV twice — two identical cards. Neither
+      the 30-row file nor the seeded board is needed.
+    Worst observed: a board of 30 cards became 90 across two re-imports, with
+      no dedupe and no "already imported" prompt.
+    Generalization: reproduces for every file tried and on every repeat, not
+      just the second — the third import added 30 more. Not established:
+      whether two concurrent tabs importing at once behave the same; that is
+      parked as a candidate charter.
+    Stakeholder impact: a user whose import appears to hang (see BUG-2) and
+      who retries doubles their board, then has to identify and delete the
+      duplicates by hand with no tooling to help.
 
 QUESTIONS / RISKS
   - Is there (or should there be) a maximum import file size and row count?

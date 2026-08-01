@@ -76,7 +76,7 @@ fi
 # --- Skills -----------------------------------------------------------------
 
 printf '\nSkills\n'
-for skill in stride-exploratory-testing chartering heuristics oracles session; do
+for skill in stride-exploratory-testing chartering heuristics oracles bug-advocacy session; do
   exists "skills/${skill}/SKILL.md" "skill '${skill}' SKILL.md"
 done
 

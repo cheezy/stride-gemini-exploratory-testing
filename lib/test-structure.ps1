@@ -85,7 +85,7 @@ if (Test-Path -LiteralPath (Join-Path $PluginRoot 'package.json')) {
 
 Write-Host ''
 Write-Host 'Skills'
-foreach ($skill in @('stride-exploratory-testing', 'chartering', 'heuristics', 'oracles', 'session')) {
+foreach ($skill in @('stride-exploratory-testing', 'chartering', 'heuristics', 'oracles', 'bug-advocacy', 'session')) {
     Test-Exists "skills/$skill/SKILL.md" "skill '$skill' SKILL.md"
 }
 
