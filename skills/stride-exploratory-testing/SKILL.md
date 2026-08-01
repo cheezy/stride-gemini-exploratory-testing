@@ -36,7 +36,7 @@ Every exploratory session runs on five engines. Each sub-skill deepens one or mo
 | **Observation** | Noticing what the system actually did — not what you expected. Fed by oracles. | `oracles` skill |
 | **Variables** | The factors you can deliberately vary — data, state, sequence, timing, environment, configuration. | `heuristics` skill (variable catalog) |
 | **Oracles** | How you decide something is *wrong* — consistency heuristics, references, claims, user expectations. | `oracles` skill |
-| **Heuristics** | Idea generators that get you unstuck — cheat sheets, Tours, SFDIPOT, and other lenses. | `heuristics` skill |
+| **Heuristics** | Idea generators that get you unstuck — cheat sheets, Tours, SFDIPOT, and other lenses. | `heuristics` skill (SFDIPOT lives in `chartering`) |
 
 Two skills sit **around** that loop rather than inside it. `session` is the container that makes a run reportable — the lifecycle, the notes, the debrief, and the artifacts it leaves on disk. `bug-advocacy` picks up where the oracles stop: once a result is judged a defect, it owns the RIMGEA follow-through and the severity rubric that turn it into a report someone acts on.
 
@@ -74,9 +74,10 @@ Match the user's request to the right destination. The orchestrator frames and r
 | The user wants to… | Route to |
 |---|---|
 | Frame a mission / decide *what* to test / write a charter | **`chartering`** skill |
+| Enumerate targets systematically / apply SFDIPOT | **`chartering`** skill (SFDIPOT lens) |
 | Generate a risk-driven charter from "what's the worst that could happen" | **`/nightmare-headline`** command |
 | Create one or more charters interactively | **`/charter`** command |
-| Get unstuck / generate test ideas / apply a cheat sheet, Tour, or SFDIPOT | **`heuristics`** skill |
+| Get unstuck / generate test ideas / apply a cheat sheet or a Tour | **`heuristics`** skill |
 | Know the factors to vary (data, state, sequence, environment) | **`heuristics`** skill (variable catalog) |
 | Decide "is this actually a bug?" / apply consistency oracles | **`oracles`** skill |
 | Turn a confirmed defect into a report someone will act on / rate its severity | **`bug-advocacy`** skill |
@@ -101,7 +102,7 @@ The richer models the sub-skills provide are **lenses, not laws** — reach for 
 
 - **SBTM** (Session-Based Test Management) — the charter → session → debrief management frame used above.
 - **Tours** — themed walkthroughs (the money tour, the landmark tour, the back-alley tour…) that bias exploration toward a particular kind of risk. Cataloged in `heuristics`.
-- **SFDIPOT** (Structure, Function, Data, Interfaces, Platform, Operations, Time) — a coverage heuristic for making sure you looked at the whole product. Cataloged in `heuristics`.
+- **SFDIPOT** (Structure, Function, Data, Interfaces, Platform, Operations, Time) — a coverage heuristic for making sure you looked at the whole product. Cataloged in `chartering`.
 
 Use them as idea generators feeding the design/execute/learn/steer loop — never as a script to march through.
 
