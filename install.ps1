@@ -7,7 +7,7 @@
     agents/, lib/, and fixtures/ directories into your Gemini extensions
     directory. By default installs globally to
     $env:USERPROFILE\.gemini\extensions\stride-gemini-exploratory-testing\ so
-    the /charter, /nightmare-headline, /explore, /recon, and /debrief commands
+    the /charter, /nightmare-headline, /explore, /pair, /recon, /debrief, and /harden commands
     are available in all projects. Use -Project to install to
     .\.gemini\extensions\stride-gemini-exploratory-testing\ in the current
     directory instead.
@@ -98,6 +98,6 @@ Write-Host "Stride Exploratory Testing for Gemini CLI installed to $InstallDir"
 Write-Host ''
 Write-Host 'Next steps:'
 Write-Host '  1. Restart Gemini CLI so it picks up the new extension'
-Write-Host '     (/charter, /nightmare-headline, /explore, /recon, /debrief).'
+Write-Host '     (/charter, /nightmare-headline, /explore, /pair, /recon, /debrief, /harden).'
 Write-Host '  2. Point it at a running, NON-PRODUCTION app you are authorized to test,'
 Write-Host '     then run /charter <target> or /explore <target> to start a session.'

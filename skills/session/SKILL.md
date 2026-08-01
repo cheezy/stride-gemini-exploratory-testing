@@ -128,14 +128,16 @@ Use Explored/Found/Unknown for the written report; use PROOF when reviewing the 
 
 ## Session artifacts on disk
 
-A session that lives only in the conversation dies with it. Sessions produce three things worth keeping across runs — the debrief, the backlog, and the coverage outline — so they are written to a small, predictable tree in **the project you are testing** (the current working directory), never in the extension's own install directory:
+A session that lives only in the conversation dies with it. Sessions produce four things worth keeping across runs — the debrief, the backlog, the coverage outline, and the regression checks `/harden` drafts from a session's confirmed bugs — so they are written to a small, predictable tree in **the project you are testing** (the current working directory), never in the extension's own install directory:
 
 ```
 .exploratory/
   backlog.md                                 # candidate charters + parked off-charter items
   coverage.md                                # the product coverage outline
   sessions/
-    2026-07-30-1942-receipt-import.md        # one per /explore run (its debrief)
+    2026-07-30-1942-receipt-import.md        # one per /explore run (its debrief) or /pair session (its sheet)
+  checks/
+    2026-07-30-1942-receipt-import/          # drafted regression checks from /harden — never run
 ```
 
 `.exploratory/` is the **default artifact root** and it is CWD-relative, so it lands in the project under test. A `--output <path>` argument overrides the destination *for that one document only* — it never moves the backlog or the coverage outline.
@@ -152,9 +154,10 @@ Everything keeps working with that line in place. Nothing here is read out of gi
 
 | Artifact | Purpose | Written by | Lifecycle |
 |---|---|---|---|
-| `.exploratory/sessions/<timestamp>-<slug>.md` | The aggregated debrief for one `/explore` run (Explored/Found/Unknown, the severity-ranked bug list, the parking lot, and PROOF). | `/explore` by default; `/debrief` only when `--output` names it | Immutable once written. A new run writes a new file; nothing rewrites another run's file. |
-| `.exploratory/backlog.md` | The charter backlog made real: charters deferred for budget, off-charter items parked mid-session, and candidate charters nobody has run yet. | `/explore`, `/debrief`, `/charter`, `/nightmare-headline`, `/recon` | Append-only. New entries land at the bottom in dated batches; existing entries are only ever *checked off*, never edited away or deleted. |
+| `.exploratory/sessions/<timestamp>-<slug>.md` | The aggregated debrief for one `/explore` run (Explored/Found/Unknown, the severity-ranked bug list, the parking lot, and PROOF), **or** the SBTM session sheet for one `/pair` session, in the human skeleton above. | `/explore` and `/pair` (both by default); `/debrief` only when `--output` names it | Immutable once written, with one exception: `/pair` owns its own sheet **for the duration of that session** and rewrites it at each checkpoint so the work survives a dropped conversation — once the session closes it is immutable like any other. A new run writes a new file; nothing rewrites another run's file. |
+| `.exploratory/backlog.md` | The charter backlog made real: charters deferred for budget, off-charter items parked mid-session, and candidate charters nobody has run yet. | `/explore`, `/pair`, `/debrief`, `/charter`, `/nightmare-headline`, `/recon` | Append-only. New entries land at the bottom in dated batches; existing entries are only ever *checked off*, never edited away or deleted. |
 | `.exploratory/coverage.md` | The product coverage outline: which areas have been explored, when, what is covered, and what is still dark. | `/explore` and `/debrief` update it; `/recon` may add a not-yet-explored area stub | Edited in place, one block per area. Areas accumulate; an area is never removed. |
+| `.exploratory/checks/<timestamp>-<slug>/` | Drafted regression checks from one `/harden` run, plus an `INDEX.md` naming the framework detected, the checks drafted, and the bugs it could not convert. Derived from a session artifact rather than being one — and **never run**. | `/harden` | Immutable once written; a new run writes a new directory and nothing rewrites another run's. Accepting a draft into the real test suite is a copy the operator makes deliberately. |
 
 **A missing artifact is an empty starting state, never an error.** If `.exploratory/`, or any file inside it, does not exist, treat it as empty and create it on the first write. Do not warn, do not ask the user to create it, and never abort a command because an artifact is absent — the first run of any command in a new project is *expected* to be the run that creates the tree.
 

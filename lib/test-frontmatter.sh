@@ -89,7 +89,7 @@ done
 # --- Commands ---------------------------------------------------------------
 
 printf '\nCommand TOML keys\n'
-for cmd in charter nightmare-headline explore recon debrief; do
+for cmd in charter nightmare-headline explore recon debrief pair harden; do
   file="${PLUGIN_ROOT}/commands/${cmd}.toml"
   if [ ! -f "$file" ]; then
     nope "command /${cmd} missing" "$file"

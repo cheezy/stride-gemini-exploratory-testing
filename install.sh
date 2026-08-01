@@ -80,6 +80,6 @@ echo "  Fixtures: $(ls "$INSTALL_DIR/fixtures" 2>/dev/null | wc -l | tr -d ' ') 
 echo ""
 echo "Next steps:"
 echo "  1. Restart Gemini CLI so it picks up the new extension"
-echo "     (/charter, /nightmare-headline, /explore, /recon, /debrief)."
+echo "     (/charter, /nightmare-headline, /explore, /pair, /recon, /debrief, /harden)."
 echo "  2. Point it at a running, NON-PRODUCTION app you are authorized to test,"
 echo "     then run /charter <target> or /explore <target> to start a session."

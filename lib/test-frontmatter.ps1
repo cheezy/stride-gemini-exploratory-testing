@@ -96,7 +96,7 @@ foreach ($agent in @('charter-generator', 'explorer')) {
 
 Write-Host ''
 Write-Host 'Command TOML keys'
-foreach ($cmd in @('charter', 'nightmare-headline', 'explore', 'recon', 'debrief')) {
+foreach ($cmd in @('charter', 'nightmare-headline', 'explore', 'recon', 'debrief', 'pair', 'harden')) {
     $file = Join-Path $PluginRoot "commands/$cmd.toml"
     if (-not (Test-Path -LiteralPath $file)) {
         Fail "command /$cmd missing" $file

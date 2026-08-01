@@ -73,21 +73,26 @@ Run your first exploratory session end to end, against an app you are authorized
 
 Not sure what to charter yet? Start with `/recon` to survey an unfamiliar system, or `/nightmare-headline` to brainstorm the worst plausible outcome and turn it into charters.
 
+Prefer to drive the application yourself? Run `/pair` instead of `/explore` — you exercise the product, and the assistant suggests each next probe, names the lens it came from, judges what you report, and keeps the session sheet for you. And once a session has confirmed some bugs, `/harden` turns them into drafted regression checks so a bug found once is a bug that stays found.
+
 ## Session artifacts
 
-Sessions leave three things behind, in a small tree under the **project you are testing** (the current working directory) — never in the extension's own install directory:
+Sessions leave four things behind, in a small tree under the **project you are testing** (the current working directory) — never in the extension's own install directory:
 
 ```
 .exploratory/
   backlog.md                                 # candidate charters + parked off-charter items
   coverage.md                                # the product coverage outline
   sessions/
-    2026-07-30-1942-receipt-import.md        # one per /explore run (its debrief)
+    2026-07-30-1942-receipt-import.md        # one per /explore run (its debrief) or /pair session (its sheet)
+  checks/
+    2026-07-30-1942-receipt-import/          # drafted regression checks from /harden — never run
 ```
 
 - **`backlog.md`** is append-only. Charters that were generated but never run, charters deferred for budget, off-charter items parked mid-session, and open stakeholder questions all land here in dated batches. Entries are only ever checked off, never deleted — so a charter nobody funded survives to be considered next time.
 - **`coverage.md`** is a map, not a score. Per area it records when it was last explored, what is covered, what is **still dark**, and the standing risk. There is no coverage percentage and there will not be one. `/charter` and `/explore` feed it back to the charter generator, which is what stops it re-proposing ground you already explored.
-- **`sessions/`** holds one debrief per `/explore` run, immutable once written.
+- **`sessions/`** holds one debrief per `/explore` run, or one session sheet per `/pair` session, immutable once written — with the single exception that `/pair` rewrites its own sheet at checkpoints while that session is still open, so a dropped conversation does not cost the notes.
+- **`checks/`** holds the regression checks `/harden` drafted from a session's confirmed bugs, plus an `INDEX.md` recording the framework it detected and the bugs it could not convert. **Nothing in here has been run** — moving a draft into your real test suite is a copy you make deliberately.
 
 **The first run creates the tree.** A missing file is an empty starting state, never an error — no command warns about it, asks you to create it, or fails because it is absent. `--output` redirects one document; it never moves the backlog or the coverage outline.
 
@@ -115,6 +120,10 @@ Run the Nightmare Headline Game — a fast risk-brainstorm that turns "the worst
 
 Plan and run exploratory testing end to end against a target — generate charters (or load them with `--charters`), gather the running-app environment context, dispatch the `explorer` agent per charter under an absolute safety boundary, then aggregate every session into **one** debrief (Explored/Found/Unknown + PROOF + a severity-ranked bug list + a follow-up parking lot). Confirms the target is authorized and non-production before executing; degrades to plan-only when no running app is available.
 
+### /pair
+
+Pair with a human who is driving the application themselves. They report what they did and saw; the assistant suggests the next probe and names the heuristic lens it came from, judges results with oracles, works confirmed defects through RIMGEA, tracks which areas and variables have been neglected and says so unprompted, and keeps the SBTM session sheet and off-charter parking lot on their behalf. This is the inversion of `/explore`: the human is the only actor that touches the product, the assistant never drives it and never dispatches the explorer, and the whole command is a conversation inside the human's wall-clock time box. Its terminal state is a session sheet on disk — hand that to `/debrief`.
+
 ### /recon
 
 Run a reconnaissance session on an unfamiliar or existing system before chartering — survey its capabilities, note observations, surface the questions a stakeholder should answer, and emit ranked candidate charters. A quick landscape-mapping pass, not a full session; probes only systems you are authorized to test, and stays observe-only when there is nothing safe to exercise.
@@ -122,6 +131,10 @@ Run a reconnaissance session on an unfamiliar or existing system before charteri
 ### /debrief
 
 Turn raw exploratory-session notes and findings into a stakeholder-ready debrief report using the session skill's two templates — Explored/Found/Unknown and PROOF (Past/Results/Obstacles/Outlook/Feelings). Reports only verifiable facts, never fabricates an unobserved result, and redacts real credentials or private data from the notes.
+
+### /harden
+
+Turn a session's oracle-confirmed bugs into drafted regression checks — the path from Explored back to Checked. Reads bugs from a session sheet, a debrief, an explorer findings object, or pasted findings; **detects the project's own test framework from the repository** rather than assuming one, and says what it detected before writing anything; and drafts one check per convertible bug, built from its isolated minimal repro. Reports every bug it could not convert and why, instead of guessing at a repro. Drafts are staged under `.exploratory/checks/` and are **never run** — the command never runs a draft and never claims one passes.
 
 ## Skills
 

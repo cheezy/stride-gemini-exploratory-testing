@@ -93,7 +93,7 @@ foreach ($skill in @('stride-exploratory-testing', 'chartering', 'heuristics', '
 
 Write-Host ''
 Write-Host 'Commands'
-foreach ($cmd in @('charter', 'nightmare-headline', 'explore', 'recon', 'debrief')) {
+foreach ($cmd in @('charter', 'nightmare-headline', 'explore', 'recon', 'debrief', 'pair', 'harden')) {
     Test-Exists "commands/$cmd.toml" "command /$cmd"
 }
 

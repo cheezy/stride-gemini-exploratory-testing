@@ -83,7 +83,7 @@ done
 # --- Commands ---------------------------------------------------------------
 
 printf '\nCommands\n'
-for cmd in charter nightmare-headline explore recon debrief; do
+for cmd in charter nightmare-headline explore recon debrief pair harden; do
   exists "commands/${cmd}.toml" "command /${cmd}"
 done
 

@@ -1,6 +1,6 @@
 ---
 name: stride-exploratory-testing
-description: Use when you want to test software the way a skilled human tester does — discovering risks, questions, and bugs that scripted or automated checks miss. This is the front door to the stride-exploratory-testing Gemini CLI extension — it teaches the mental model (Tested = Checked + Explored), frames a time-boxed session, and routes each request to the right sub-skill (chartering, heuristics, oracles, bug-advocacy, session) or TOML slash command (/charter, /nightmare-headline, /explore, /recon, /debrief). Invoke it when the user asks to "explore", "poke at", "do exploratory/manual testing on", "find bugs in", "charter a session for", or otherwise investigate a feature rather than confirm a known expectation.
+description: Use when you want to test software the way a skilled human tester does — discovering risks, questions, and bugs that scripted or automated checks miss. This is the front door to the stride-exploratory-testing Gemini CLI extension — it teaches the mental model (Tested = Checked + Explored), frames a time-boxed session, and routes each request to the right sub-skill (chartering, heuristics, oracles, bug-advocacy, session) or TOML slash command (/charter, /nightmare-headline, /explore, /pair, /recon, /debrief, /harden). Invoke it when the user asks to "explore", "poke at", "do exploratory/manual testing on", "find bugs in", "charter a session for", or otherwise investigate a feature rather than confirm a known expectation.
 skills_version: "1.0"
 ---
 
@@ -69,7 +69,7 @@ The `session` skill owns this lifecycle end to end; the `/explore` command runs 
 
 ## Routing table
 
-Match the user's request to the right destination. The orchestrator frames and routes; it does not duplicate the sub-skills' content. The five slash commands are native Gemini CLI commands authored as TOML under `commands/` (`commands/charter.toml`, `commands/nightmare-headline.toml`, `commands/explore.toml`, `commands/recon.toml`, `commands/debrief.toml`).
+Match the user's request to the right destination. The orchestrator frames and routes; it does not duplicate the sub-skills' content. The seven slash commands are native Gemini CLI commands authored as TOML under `commands/` (`commands/charter.toml`, `commands/nightmare-headline.toml`, `commands/explore.toml`, `commands/pair.toml`, `commands/recon.toml`, `commands/debrief.toml`, `commands/harden.toml`).
 
 | The user wants to… | Route to |
 |---|---|
@@ -83,6 +83,8 @@ Match the user's request to the right destination. The orchestrator frames and r
 | Run a full time-boxed session with notes and a debrief | **`session`** skill |
 | Do a quick reconnaissance pass over an unfamiliar feature | **`/recon`** command |
 | Run an exploratory session end-to-end (plan and execute) | **`/explore`** command |
+| Test alongside a human who is driving the app themselves | **`/pair`** command |
+| Turn a session's findings into regression checks / "make sure this bug can't come back" | **`/harden`** command |
 | Close out a session and produce a structured debrief | **`/debrief`** command |
 
 Two custom agents support the commands rather than being invoked directly: **`charter-generator`** (turns a target + risk into candidate charters) and **`explorer`** (executes a charter's exploration loop and reports findings). Reach for the commands above; they dispatch these agents for you.
