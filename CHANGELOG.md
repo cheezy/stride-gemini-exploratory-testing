@@ -5,6 +5,14 @@ All notable changes to the Stride Exploratory Testing extension for Gemini CLI a
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-08-21
+
+A pointer fix in the orchestrator skill. Nothing an extension consumer calls has changed.
+
+### Fixed
+
+- **SFDIPOT was routed to the `heuristics` skill, and `heuristics` does not contain it** (D211). The coverage lens table is part of `chartering`; the orchestrator said otherwise in three places, so a request to walk a product systematically landed on a skill with no answer to give. The Engines table now carries the destination as a parenthetical — matching how the Variables row already qualifies its own cell — the routing table gains a dedicated row for enumerating targets with SFDIPOT and no longer lists the acronym under "get unstuck", and the lenses list credits `chartering` as the catalog. The cheat sheets and the Tours are still in `heuristics`, and still routed there.
+
 ## [0.2.0] - 2026-08-01
 
 A capability sweep ported from the Claude Code plugin's 2026-07 improvement research: two new commands, a sixth skill, session artifacts that survive the conversation, and an explorer contract that no longer asks the agent to fabricate.
