@@ -73,7 +73,7 @@ Then use the `write_file` tool to write a markdown document that records `CHOSEN
 
 ### Step 9: Append the charters to the backlog
 
-Append one dated batch of `candidate-charter` entries to `.exploratory/backlog.md`, with the chosen headline as a leading italic line above the bullets so the batch says what nightmare produced it. The `session` skill owns the format, the header block, and the write mechanics; follow it rather than inventing a shape. `read_file` the whole file **immediately before** the `write_file`, then write it back with prior content **verbatim** plus the new batch at the bottom — never reorder, reword, compact, or delete a prior entry. When the file is absent, create it with the header block first. Dedupe each entry against the open (`- [ ]`) entries. **A missing file is an empty starting state, never an error**, and **redact before writing**.
+Append one dated batch of `candidate-charter` entries to `.exploratory/backlog.md`, with the chosen headline as a leading italic line above the bullets so the batch says what nightmare produced it. The format, the header block, and the write mechanics are in the `session` skill's `references/session-artifacts.md`, linked from its *Session artifacts on disk* section; follow them rather than inventing a shape. `read_file` the whole file **immediately before** the `write_file`, then write it back with prior content **verbatim** plus the new batch at the bottom — never reorder, reword, compact, or delete a prior entry. When the file is absent, create it with the header block first. Dedupe each entry against the open (`- [ ]`) entries. **A missing file is an empty starting state, never an error**, and **redact before writing**.
 
 ### Step 10: Finish
 

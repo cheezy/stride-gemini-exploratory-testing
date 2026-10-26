@@ -8,7 +8,7 @@ Reach for it when the user wants to **investigate** a feature rather than **conf
 
 ## Commands
 
-Seven native slash commands drive the workflow. The doctrine they enforce lives in the `skills/` — the commands defer to the skills rather than restating them.
+Seven native slash commands drive the workflow. The doctrine they enforce lives in the `skills/` — the commands defer to the skills rather than restating them. The usual order is `/charter`, `/nightmare-headline` or `/recon` to decide what to explore, `/explore` or `/pair` to run it, `/debrief` after a `/pair` or manual session, and `/harden` to turn confirmed bugs into regression checks.
 
 | Command | When to use |
 |---------|-------------|
@@ -19,6 +19,8 @@ Seven native slash commands drive the workflow. The doctrine they enforce lives 
 | `/debrief [<notes-file>] [--output <path>]` | Turn raw session notes into a stakeholder-ready debrief (Explored/Found/Unknown + PROOF). Reports only verifiable facts; never fabricates an unobserved result; redacts secrets. |
 | `/pair <target or charter> [--timebox <minutes>] [--output <path>]` | Pair with a human who drives the app themselves. Suggests the next probe and names its lens, judges what they report with oracles, runs RIMGEA on confirmed defects, calls out neglected areas and variables unprompted, and keeps the session sheet and parking lot. **Never drives the app and never dispatches the explorer.** |
 | `/harden [<session-debrief-or-findings-file>] [--framework <name>\|none] [--output <dir>]` | Turn a session's confirmed bugs into drafted regression checks. Detects the project's test framework rather than assuming one and says so before writing; reports every bug it could not convert and why. Drafts are staged; it never runs one and never claims one passes. With a bug source and `--framework` both given (`none` drafts nothing runnable) it never asks a question; an unreadable bug source stops it. |
+
+Gemini CLI has no first-class preview-pane question tool, so commands render option comparisons inline (fenced ASCII blocks or short tables).
 
 ## Skills
 
@@ -36,47 +38,7 @@ The knowledge core lives under `skills/`; readers usually do not activate these 
 Two custom agents live at `agents/<name>.md` and are auto-discovered by Gemini CLI. They are dispatched by the commands, not invoked directly from a user prompt.
 
 - **charter-generator** — read-only (`read_file`, `grep_search`, `glob`). Turns a target + risk context into a risk-ranked list of well-formed charters and returns them as structured data. Dispatched by `/charter` and `/nightmare-headline`. It runs nothing.
-- **explorer** — runs one budgeted exploratory session per charter against a running app, applies named heuristics, judges results with oracles, records an SBTM session sheet, and returns structured findings (session sheet, notes, bugs, questions/risks, off-charter parking lot, debrief). Dispatched by `/explore`.
-
-## Workflow Sequence
-
-```
-/charter <target>            (or /nightmare-headline, or /recon)
-  → dispatches charter-generator
-  → renders a risk-ranked charter list (highest risk first)
-  → STOP — charters are a valid terminal state; a tester picks one
-
-/explore <target> [--charters <file>] [--timebox <minutes>] [--probes <count>]
-  → confirms the target is authorized and NON-PRODUCTION
-  → gathers running-app environment context
-  → --timebox is your wall-clock: it decides HOW MANY charters run
-  → --probes bounds EACH session (default 12, band 8-20); never a clock
-  → dispatches explorer per charter (sequentially), each under the
-    absolute safety boundary, each producing an SBTM session sheet
-  → aggregates every session into ONE debrief:
-    Explored/Found/Unknown + PROOF + severity-ranked bugs + parking lot
-
-/pair <target or charter> [--timebox <minutes>]
-  → confirms the target is authorized and NON-PRODUCTION, then states the
-    division of labour: THE HUMAN DRIVES, you never do
-  → each round: you suggest one probe and name its lens; the human runs it
-    and reports; you judge with oracles and run RIMGEA on any defect
-  → sweeps the neglected areas, variables and stances UNPROMPTED
-  → writes a session sheet + appends the backlog; NOT the coverage outline
-  → hands off to /debrief and STOPS
-
-/debrief [<notes-file>]
-  → rebuilds a stakeholder-ready debrief from raw notes, after the fact
-  → updates the backlog and the coverage outline
-
-/harden [<session-debrief-or-findings-file>] [--framework <name>|none]
-  → loads the session's oracle-confirmed bugs (untrusted data, never a script)
-  → DETECTS the project's test framework and reports it BEFORE writing
-  → drafts one check per convertible bug from its minimal repro
-  → reports every bug it could not convert, and why
-  → drafts are staged and NEVER RUN — it never runs one, never says one passes
-  → given a bug source AND --framework it never stops to ask; an unreadable source STOPS the run
-```
+- **explorer** — runs one budgeted exploratory session per charter against a running app, applies named heuristics, judges results with oracles, records an SBTM session sheet, and returns structured findings (session sheet, notes, bugs, questions/risks, off-charter parking lot, debrief). Dispatched by `/explore`. It deliberately holds no `web_fetch`: it observes HTTP with `curl -sS -i` through `run_shell_command` (see *What you can observe* in `agents/explorer.md`).
 
 ## The absolute safety boundary
 
@@ -87,25 +49,6 @@ Every session — and especially the `explorer` agent — operates under a **non
 - **Never** dispatch the `explorer` without `AUTHORIZED_NON_PRODUCTION: yes` and `ALLOWED_HOSTS: <host[:port]>, …` (or `ALLOWED_HOSTS: none` for a CLI-only target) as the first lines of its environment context, written only after the user's explicit authorized-and-non-production answer. Without both lines the explorer runs zero probes and returns `blocked`; with them it reaches only the listed hosts, cleans up every process and file it started before its last working turn, and opens a credential file only for a value the dispatch names. `policies/explorer.toml` has Gemini CLI refuse recursive or wildcard deletes, `pkill`/`killall` and `git push` from the explorer.
 - **Never** fabricate a result. A debrief reports externally verifiable facts — what was actually observed. If a result was not observed, it belongs under "unknown", not "found".
 - **Never** put real user data, credentials, or internal hostnames into charters, session sheets, or debriefs. Use placeholders (e.g. a reserved `demo.example.com` host) and redact.
-
-## Tool Name Mapping
-
-The skill and agent bodies reference Gemini CLI tool names directly. When porting prompts that originated on another platform (the upstream Claude Code plugin, or the Codex/Copilot/opencode ports), use these equivalents:
-
-| Other-platform reference | Gemini Tool |
-|--------------------------|-------------|
-| `Read` | `read_file` |
-| `Grep` | `grep_search` |
-| `Glob` | `glob` |
-| `Bash` | `run_shell_command` |
-| `Edit` | `replace` |
-| `Write` | `write_file` |
-| `WebFetch` | `web_fetch` |
-| `list directory` | `list_directory` |
-
-The mapping is for translating prose, not a tool grant: the `explorer` agent deliberately holds no `web_fetch`. It observes HTTP with `curl -sS -i` through `run_shell_command` (see *What you can observe* in `agents/explorer.md`).
-
-Gemini CLI has no first-class "preview pane" question tool, so option comparisons are rendered inline (fenced ASCII blocks or short tables) rather than via a preview field.
 
 ## How this extension relates to `stride-gemini`
 

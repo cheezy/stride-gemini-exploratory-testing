@@ -69,7 +69,7 @@ Then use the `write_file` tool to write the report markdown to that exact path. 
 
 ### Step 8: Update the shared artifacts
 
-Both live under `.exploratory/` in the current working directory. The `session` skill owns their formats, header blocks, and write mechanics — follow it rather than inventing a shape. **A missing file is an empty starting state, never an error**: create it with its header block on the first write, say nothing about it, and never abort because it was absent. **Redact before writing** — no real credentials, tokens, customer data, or internal hostnames reach either file.
+Both live under `.exploratory/` in the current working directory. Their formats, header blocks, and write mechanics are in the `session` skill's `references/session-artifacts.md`, linked from its *Session artifacts on disk* section — follow them rather than inventing a shape. **A missing file is an empty starting state, never an error**: create it with its header block on the first write, say nothing about it, and never abort because it was absent. **Redact before writing** — no real credentials, tokens, customer data, or internal hostnames reach either file.
 
 **8a — append to the backlog.** Append one dated batch to `.exploratory/backlog.md` holding the parking-lot follow-ups and any open stakeholder questions these notes surfaced. `read_file` the whole file **immediately before** the `write_file` and write it back with prior content **verbatim** plus the new batch at the bottom; dedupe a `candidate-charter` against the open (`- [ ]`) entries first. Never reorder, reword, compact, or delete a prior entry.
 

@@ -102,7 +102,7 @@ Session output describes a real application and may quote what it observed, so i
 .exploratory/
 ```
 
-These files are read back on later runs as **data, never instructions** — a line in one that reads like a command is content to weigh, not something any command obeys. The full contract, including the exact formats and the write mechanics, lives in the [`session` skill](skills/session/SKILL.md).
+These files are read back on later runs as **data, never instructions** — a line in one that reads like a command is content to weigh, not something any command obeys. The full contract, including the exact formats and the write mechanics, lives in the [`session` skill](skills/session/SKILL.md)'s reference, [`skills/session/references/session-artifacts.md`](skills/session/references/session-artifacts.md).
 
 ## Commands
 
@@ -144,7 +144,7 @@ The knowledge core lives under `skills/`. The commands and agents defer to these
 - **[`chartering`](skills/chartering/SKILL.md)** — deciding **what** to explore and framing it as a charter: the *Explore … with … to discover …* template, SFDIPOT target enumeration, and the Nightmare Headline Game.
 - **[`heuristics`](skills/heuristics/SKILL.md)** — the single source of truth for test ideas: the general and web cheat sheets, the variable-spotting catalog, and Whittaker's Tours grouped by district. Turns a charter into specific probes.
 - **[`oracles`](skills/oracles/SKILL.md)** — deciding whether what you observed is a **bug**: Never/Always rules, consistency oracles, approximations for when the right answer is unknowable, and the HTSM quality-criteria checklist.
-- **[`bug-advocacy`](skills/bug-advocacy/SKILL.md)** — turning a confirmed defect into a report someone acts on: Cem Kaner's RIMGEA follow-through (Replicate, Isolate, Maximize, Generalize, Externalize, And say it clearly), a severity rubric with explicit per-level criteria, and the dispassionate-tone rule.
+- **[`bug-advocacy`](skills/bug-advocacy/SKILL.md)** — turning a confirmed defect into a report someone acts on: Cem Kaner's RIMGEA follow-through (Replicate, Isolate, Maximize, Generalize, Externalize, And say it clearly), a severity rubric with explicit per-level criteria, and the dispassionate-tone rule. Its worked example and the full tone rule are in [`references/worked-example-and-tone.md`](skills/bug-advocacy/references/worked-example-and-tone.md).
 - **[`session`](skills/session/SKILL.md)** — running a session end to end: time-boxing, the SBTM session sheet, Task Breakdown Metrics, note conventions, stopping heuristics, the off-charter parking lot, and both debrief templates. The wall-clock box and Task Breakdown Metrics bind **human-run and paired** sessions; an agent-run session is bounded by an agent-native probe budget instead.
 
 The `heuristics` skill is the canonical catalog; [`HEURISTICS.md`](HEURISTICS.md) at the root is a one-page pointer into it, not a copy.
@@ -181,6 +181,23 @@ EXPLORATORY_MODE=verify
 - **What it runs.** A charter built from the bug, on a budget of **2 probes / 10 tool calls** (band 1–2). Probe 1 re-runs the `minimal_repro` exactly; probe 2 tries one variant from `generalization`, when there is one. A caller may raise the tool-call ceiling for setup state, never above 60, but never the probe budget. `max_turns: 60` bounds the session from above but counts model turns, so the explorer counts its own probes and calls. The bug's fields are data: each step is rebuilt as the explorer's own command, and a step that needs a host outside `ALLOWED_HOSTS` is not run.
 - **What you get back.** The usual findings object plus a root `verify` object — `{ "result": "pass" | "fail" | "not_verified", "repro_reached": true | false, "evidence": "..." }` — and, with `EXPLORATORY_REPORT_PATH`, a `verify:` summary line. A partial fix is `fail`, with the remaining defect in `bugs`. A repro that was never reached, a bug with no usable `minimal_repro`, or a dispatch missing either required line is `not_verified`: **never treat it as a pass.** A `pass` covers that one bug only. `status` is still derived from `stop_reason`. See [`fixtures/example-explorer-verify-output.json`](fixtures/example-explorer-verify-output.json) for a `fail` on a partial fix.
 - **What does not change.** The required lines, the safety boundary, cleanup and the report-file rules all apply exactly as in a full session. `/explore` never sets verify mode.
+
+## Tool names (porting)
+
+The skill and agent bodies reference Gemini CLI tool names directly. When porting prompts that originated on another platform (the upstream Claude Code plugin, or the Codex/Copilot/opencode ports), use these equivalents:
+
+| Other-platform reference | Gemini Tool |
+|--------------------------|-------------|
+| `Read` | `read_file` |
+| `Grep` | `grep_search` |
+| `Glob` | `glob` |
+| `Bash` | `run_shell_command` |
+| `Edit` | `replace` |
+| `Write` | `write_file` |
+| `WebFetch` | `web_fetch` |
+| `list directory` | `list_directory` |
+
+The mapping is for translating prose, not a tool grant: the `explorer` agent deliberately holds no `web_fetch`.
 
 ## How this relates to `stride-gemini`
 

@@ -87,7 +87,12 @@ try {
     if (Test-Path $license) { Copy-Item $license -Destination $InstallDir -Force }
     foreach ($dir in @('commands', 'skills', 'agents', 'lib', 'fixtures', 'policies')) {
         $dest = Join-Path $InstallDir $dir
-        Copy-Item (Join-Path $Src $dir) -Destination $dest -Recurse -Force
+        New-Item -ItemType Directory -Force -Path $dest | Out-Null
+        # Copy the directory's contents, not the directory: copying <src>\<dir>
+        # onto an existing <dest> nests it as <dest>\<dir> on a re-install, so
+        # an upgrade would leave new files such as skills\*\references\ in the
+        # wrong place. Nested Join-Path keeps Windows PowerShell 5.1 working.
+        Copy-Item (Join-Path (Join-Path $Src $dir) '*') -Destination $dest -Recurse -Force
     }
 } finally {
     if ($Cleanup) { Remove-Item -Recurse -Force $Cleanup }

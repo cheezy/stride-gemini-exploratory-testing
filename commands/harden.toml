@@ -1,4 +1,4 @@
-description = "Turn a session's oracle-confirmed bugs into drafted regression checks — the path from Explored back to Checked. Reads bugs from a persisted session sheet, a debrief, an explorer findings object, or pasted findings; detects the project's own test framework from the repository rather than assuming one; and drafts one regression check per convertible bug, built from its minimal repro. Reports every bug it could not convert and why, instead of guessing at a repro or inventing a test. Drafts are staged under .exploratory/checks/ and are never run — this command never runs a draft and never claims one passes."
+description = "Turn a session's oracle-confirmed bugs into drafted regression checks — the path from Explored back to Checked. Reads bugs from a persisted session sheet, a debrief, an explorer findings object, or pasted findings, detects the project's own test framework, and drafts one check per convertible bug from its minimal repro, reporting every bug it could not convert and why. Drafts are staged under .exploratory/checks/ and never run; this command never claims a drafted check passes."
 
 prompt = '''
 # /harden
@@ -49,7 +49,7 @@ Consult both skills — read each with `read_file` if it is not already in conte
 - `bug-advocacy` (`skills/bug-advocacy/SKILL.md`)
 - `session` (`skills/session/SKILL.md`)
 
-`bug-advocacy` owns what `minimal_repro`, `worst_observed`, `generalization`, and `severity` mean, and its **Safety of bug advocacy** section owns two rules this command inherits wholesale: a worse failure that cannot be *safely* demonstrated is never claimed, and every RIMGEA field carries observed system output, so the redaction rule binds all of them. `session` owns the artifact shapes you are about to parse and the **Session artifacts on disk** convention Step 7 writes under. Read both there rather than re-deriving them here.
+`bug-advocacy` owns what `minimal_repro`, `worst_observed`, `generalization`, and `severity` mean, and its **Safety of bug advocacy** section owns two rules this command inherits wholesale: a worse failure that cannot be *safely* demonstrated is never claimed, and every RIMGEA field carries observed system output, so the redaction rule binds all of them. `session` owns the artifact shapes you are about to parse and the **Session artifacts on disk** convention Step 7 writes under, stated in full in its `references/session-artifacts.md`. Read both there rather than re-deriving them here.
 
 ### Step 3: Load the bugs
 

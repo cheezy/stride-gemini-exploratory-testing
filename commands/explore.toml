@@ -1,4 +1,4 @@
-description = "Plan and run exploratory testing end to end against a target — generate charters (or load them with --charters), gather the running-app environment context, dispatch the explorer agent per charter under an absolute safety boundary, then aggregate every session into ONE debrief (Explored/Found/Unknown + PROOF + a severity-ranked bug list + a follow-up parking lot). Confirms the target is authorized and non-production before executing; degrades to plan-only when no running app is available."
+description = "Plan and run exploratory testing end to end against a target — generate charters (or load them with --charters), dispatch the explorer agent per charter under an absolute safety boundary, and aggregate every session into ONE debrief with a severity-ranked bug list. Confirms the target is authorized and non-production before executing; degrades to plan-only when no running app is available."
 
 prompt = '''
 # /explore
@@ -137,7 +137,7 @@ Then use the `write_file` tool to write the debrief markdown to that exact path.
 
 ### Step 10: Persist the session artifacts
 
-Three writes, all under `.exploratory/` in the current working directory (the project under test). The `session` skill owns the formats — the artifact tree, the header blocks, the backlog and coverage skeletons, and the write mechanics — so follow it rather than inventing a shape here. **Redact before writing**: a file outlives the session, so no real credentials, tokens, customer data, or internal hostnames reach any of these, exactly as in the rendered output.
+Three writes, all under `.exploratory/` in the current working directory (the project under test). The formats — the artifact tree, the header blocks, the backlog and coverage skeletons, and the write mechanics — are in the `session` skill's `references/session-artifacts.md`, linked from its *Session artifacts on disk* section, so follow them rather than inventing a shape here. **Redact before writing**: a file outlives the session, so no real credentials, tokens, customer data, or internal hostnames reach any of these, exactly as in the rendered output.
 
 **10a — the session debrief.** Write the aggregated debrief to `.exploratory/sessions/<timestamp>-<target-slug>.md`, where the timestamp is `date +%Y-%m-%d-%H%M` via `run_shell_command` and the slug is `TARGET` lowercased with every run of non-`[a-z0-9]` collapsed to a single `-`, trimmed, truncated to 40 characters (`session` if that leaves nothing). If the path already exists, suffix `-2`, `-3`, … rather than overwriting. When the operator named an `--output` path, that document goes there *as well as* here — `--output` redirects that one document, it never replaces the session record.
 
