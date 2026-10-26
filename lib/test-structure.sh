@@ -12,6 +12,11 @@
 # checks the explorer's output contract: fixtures/example-explorer-output.json
 # (and a real result named by EXPLORER_OUTPUT) against the tables in
 # agents/explorer.md, with edge-case variants that must pass or be refused.
+# Last, it pins the explorer's observation surface: its tools list (no
+# web_fetch, with a built-in break-it that adds it back), the curl -sS -i and
+# rendered-view rules, the curl form that ignores .curlrc and refuses
+# redirects, the no_observation_surface ending, and the /explore command's
+# wording.
 #
 # Offline and read-only — it never executes or evaluates any extension file; it
 # checks existence, parses the manifest and the explorer JSON as data with
@@ -462,12 +467,15 @@ say(set(derive.values()) == set(status_enum) and len(status_enum) == 3,
     "every status value is derived by the table (stopped_early is defined)",
     "derived=%s enum=%s" % (sorted(set(derive.values())), status_enum))
 EXPECTED = {"charter_quiet": "completed", "risk_acceptable": "completed", "probe_budget_exhausted": "stopped_early",
-            "tool_call_ceiling": "stopped_early", "blocked": "blocked"}
+            "tool_call_ceiling": "stopped_early", "blocked": "blocked", "no_observation_surface": "blocked"}
 say(derive == EXPECTED and len(pairs) == len(EXPECTED),
     "the status table maps each stop_reason exactly as contract 1.0 defines",
     "table=%s" % " ".join("%s=%s" % p for p in pairs))
 say(re.search(r"^\| `blocked` \| `blocked` \|.*not clearly authorised", derive_text, re.M) is not None,
     "an unauthorised target derives status blocked", "the blocked row does not name a target not clearly authorised")
+say("no_observation_surface" in stop_enum and derive.get("no_observation_surface") == "blocked",
+    "no_observation_surface is in the stop_reason enum and derives status blocked",
+    "enum=%s derive=%s" % (stop_enum, derive.get("no_observation_surface")))
 say(bug_table == bug_keys and {"replicated", "provisional"} <= bug_table,
     "bugs field table and the bugs row name the same fields, replicated and provisional among them",
     "table=%s row=%s" % (sorted(bug_table), sorted(bug_keys)))
@@ -616,11 +624,15 @@ def once_seen(d):
     d["bugs"][0]["replicated"] = "1/5"
 def not_established(d):
     d["bugs"][0]["replicated"] = "not established: budget spent before a re-run"
+def no_surface(d):
+    d["status"] = "blocked"
+    d["session_sheet"]["stop_reason"] = "no_observation_surface"
 
 for label, fn in (("zero bugs", zero_bugs), ("no bugs and an empty known_bad array", empty_arrays),
                   ("blocked before the first probe", blocked_first),
                   ("replicated 2/3", two_of_three), ("a once-seen Critical (1/5)", once_seen),
-                  ("replicated not established with a reason", not_established)):
+                  ("replicated not established with a reason", not_established),
+                  ("no_observation_surface after probing the observable part, findings kept", no_surface)):
     e = check_variant(fn)
     say(not e, "variant passes: " + label, "; ".join(e))
 
@@ -676,6 +688,8 @@ def bad_kind(d):
     d["questions_risks"][0]["kind"] = "worry"
 def not_a_charter(d):
     d["off_charter"][0]["candidate_charter"] = "Look at uploads"
+def no_surface_completed(d):
+    d["session_sheet"]["stop_reason"] = "no_observation_surface"
 
 for label, fn in (("a bug without replicated", no_replicated),
                   ("provisional disagrees with stakeholder_impact", bad_provisional),
@@ -686,7 +700,8 @@ for label, fn in (("a bug without replicated", no_replicated),
                   ("a session_sheet count that is a boolean", bool_count),
                   ("no contract_version", no_version), ("contract_version 0.9", other_version),
                   ("no known_bad array", no_known_bad), ("a plain-string questions_risks element", plain_question),
-                  ("questions_risks kind worry", bad_kind), ("a candidate_charter not in charter form", not_a_charter)):
+                  ("questions_risks kind worry", bad_kind), ("a candidate_charter not in charter form", not_a_charter),
+                  ("no_observation_surface reported as completed", no_surface_completed)):
     e = check_variant(fn)
     say(bool(e) and not e[0].startswith("the variant could not be built"),
         "variant is refused: " + label, "; ".join(e) or "the validator accepted it")
@@ -776,6 +791,106 @@ PY
   fi
 else
   nope "output-contract checks need agents/explorer.md and fixtures/example-explorer-output.json" ""
+fi
+
+# --- Explorer observation surface -------------------------------------------
+#
+# W2496, a port of the Claude Code plugin's W2263: the explorer judges only what
+# a tool in its own list can observe. web_fetch is off its tools list, so the
+# runtime holds the rule rather than prose; HTTP is observed with curl -sS -i
+# through run_shell_command; rendered views are never judged from source; and a
+# charter needing an observation no tool can make ends no_observation_surface,
+# which derives status blocked. The tools pin carries its own break-it: the same
+# check run on the agent text with web_fetch added back must fail. The curl
+# rule is written as curl -q -sS -i --max-redirs 0: -q, first, stops a .curlrc
+# `location` line re-enabling redirects, and --max-redirs 0 refuses any that
+# gets through, so no -L is not left to the operator's config. Messages are
+# identical in test-structure.ps1.
+
+printf '\nExplorer observation surface\n'
+EXPLORE_CMD="${PLUGIN_ROOT}/commands/explore.toml"
+
+# explorer_tools — read agent text on stdin, print its frontmatter tools list,
+# one tool per line.
+explorer_tools() {
+  LC_ALL=C tr -d '\r' | LC_ALL=C awk '
+    NR == 1 && $0 == "---" { fm = 1; next }
+    fm && $0 == "---" { exit }
+    fm && t && /^  - / { print substr($0, 5); next }
+    fm { t = ($0 == "tools:") }'
+}
+WANT_TOOLS="$(printf '%s\n' read_file grep_search glob run_shell_command)"
+# tools_pin_ok — read agent text on stdin; succeed only when its tools list is
+# exactly WANT_TOOLS. The pin and its break-it both call this one function.
+tools_pin_ok() { [ "$(explorer_tools)" = "$WANT_TOOLS" ]; }
+
+if [ -f "$EXPLORER" ] && [ -f "$EXPLORE_CMD" ]; then
+  GOT_TOOLS="$(explorer_tools < "$EXPLORER")"
+  if tools_pin_ok < "$EXPLORER"; then
+    ok "explorer tools are read_file, grep_search, glob and run_shell_command, with no web_fetch"
+  else
+    nope "explorer tools must be read_file, grep_search, glob and run_shell_command only" "got: $(printf '%s' "$GOT_TOOLS" | tr '\n' ' ')"
+  fi
+  # Break-it: the same pin, run on the agent text with web_fetch added back.
+  BROKEN_TEXT="$(LC_ALL=C tr -d '\r' < "$EXPLORER" | LC_ALL=C awk '
+    { print }
+    $0 == "  - run_shell_command" && !done { print "  - web_fetch"; done = 1 }')"
+  BROKEN_TOOLS="$(printf '%s\n' "$BROKEN_TEXT" | explorer_tools)"
+  case "$(printf '\n%s\n' "$BROKEN_TOOLS")" in
+    *"$(printf '\nweb_fetch\n')"*)
+      if ! printf '%s\n' "$BROKEN_TEXT" | tools_pin_ok; then
+        ok "break-it: web_fetch added back to the explorer's tools fails the tools pin"
+      else
+        nope "break-it: web_fetch added back to the explorer's tools fails the tools pin" "the tools pin accepted a list carrying web_fetch"
+      fi ;;
+    *) nope "break-it: web_fetch added back to the explorer's tools fails the tools pin" "could not add web_fetch after run_shell_command in the frontmatter" ;;
+  esac
+
+  EXPLORER_TEXT="$(LC_ALL=C tr -d '\r' < "$EXPLORER")"
+  MISSING="$(missing_needles "$EXPLORER_TEXT" \
+    '## What you can observe' \
+    '**Observe HTTP with `curl -sS -i`, run through `run_shell_command`.**' \
+    '**Never pass `-L` (or `--location`)**' \
+    '**Never use `web_fetch` as an oracle source**' \
+    '**Judge only what a tool in your own tool list can observe.**' \
+    '**Never judge them from HTML, CSS or template source**' \
+    '**A charter that needs an observation none of your tools can make ends `no_observation_surface`.**' \
+    'Then set `stop_reason: "no_observation_surface"`, which derives `status: "blocked"`.' \
+    '| `no_observation_surface` | `blocked` |' \
+    'An environment context that names one does not grant it' \
+    '`no_observation_surface` is the one exception: it takes precedence over whatever else held.')"
+  if [ -z "$MISSING" ]; then
+    ok "explorer.md documents What you can observe, curl -sS -i, the rendered-view rule and the no_observation_surface ending"
+  else
+    nope "explorer.md is missing observation-surface wording" "$MISSING"
+  fi
+  case "$EXPLORER_TEXT" in
+    *'`run_shell_command`/`web_fetch`'*)
+      nope "explorer.md no longer offers web_fetch as an HTTP surface" '`run_shell_command`/`web_fetch`' ;;
+    *) ok "explorer.md no longer offers web_fetch as an HTTP surface" ;;
+  esac
+  MISSING="$(missing_needles "$EXPLORER_TEXT" \
+    'Write it as `curl -q -sS -i --max-redirs 0 <url>`' \
+    '`-q` must be the first argument, and it stops `curl` reading a `.curlrc`' \
+    '`--max-redirs 0` refuses any redirect that still gets through.')"
+  if [ -z "$MISSING" ]; then
+    ok "explorer.md's curl rule ignores .curlrc (-q first) and refuses redirects (--max-redirs 0)"
+  else
+    nope "explorer.md's curl rule must ignore .curlrc and refuse redirects" "$MISSING"
+  fi
+
+  CMD_TEXT="$(LC_ALL=C tr -d '\r' < "$EXPLORE_CMD")"
+  MISSING="$(missing_needles "$CMD_TEXT" 'curl -sS -i' 'no_observation_surface')"
+  case "$CMD_TEXT" in
+    *web_fetch*) MISSING="${MISSING} (still names web_fetch)" ;;
+  esac
+  if [ -z "$MISSING" ]; then
+    ok "commands/explore.toml handles no_observation_surface and names no web_fetch"
+  else
+    nope "commands/explore.toml is missing observation-surface handling" "$MISSING"
+  fi
+else
+  nope "observation-surface checks need agents/explorer.md and commands/explore.toml" ""
 fi
 
 # --- Root docs & license ----------------------------------------------------

@@ -13,6 +13,11 @@
 # fixtures/example-explorer-output.json (and a real result named by
 # EXPLORER_OUTPUT) against the tables in agents/explorer.md, with edge-case
 # variants that must pass or be refused.
+# Last, it pins the explorer's observation surface: its tools list (no
+# web_fetch, with a built-in break-it that adds it back), the curl -sS -i and
+# rendered-view rules, the curl form that ignores .curlrc and refuses
+# redirects, the no_observation_surface ending, and the /explore command's
+# wording.
 #
 # Offline and read-only — it never executes or evaluates any extension file; it
 # checks existence, parses the manifest and the explorer JSON as data with
@@ -613,7 +618,7 @@ if ($contractReady) {
         Fail 'every status value is derived by the table (stopped_early is defined)' "derived=[$(@($derivedSet) -join ' ')] enum=[$($statusEnum -join ' ')]"
     }
     $expected = [ordered]@{ charter_quiet = 'completed'; risk_acceptable = 'completed'; probe_budget_exhausted = 'stopped_early';
-                            tool_call_ceiling = 'stopped_early'; blocked = 'blocked' }
+                            tool_call_ceiling = 'stopped_early'; blocked = 'blocked'; no_observation_surface = 'blocked' }
     $mapOk = ($derive.Count -eq $expected.Count -and $firsts.Count -eq $expected.Count)
     foreach ($k in $expected.Keys) { if (-not $derive.Contains($k) -or $derive[$k] -cne $expected[$k]) { $mapOk = $false } }
     if ($mapOk) { Pass 'the status table maps each stop_reason exactly as contract 1.0 defines' }
@@ -622,6 +627,12 @@ if ($contractReady) {
         Pass 'an unauthorised target derives status blocked'
     } else {
         Fail 'an unauthorised target derives status blocked' 'the blocked row does not name a target not clearly authorised'
+    }
+    if (($stopEnum -ccontains 'no_observation_surface') -and $derive.Contains('no_observation_surface') -and $derive['no_observation_surface'] -ceq 'blocked') {
+        Pass 'no_observation_surface is in the stop_reason enum and derives status blocked'
+    } else {
+        $nosDerived = if ($derive.Contains('no_observation_surface')) { $derive['no_observation_surface'] } else { '' }
+        Fail 'no_observation_surface is in the stop_reason enum and derives status blocked' "enum=[$($stopEnum -join ' ')] derive=$nosDerived"
     }
     if ($bugTable.SetEquals($bugKeys) -and $bugTable.Contains('replicated') -and $bugTable.Contains('provisional')) {
         Pass 'bugs field table and the bugs row name the same fields, replicated and provisional among them'
@@ -805,6 +816,7 @@ if ($contractReady) {
             'replicated 2/3' = { param($d) $d.bugs[0].replicated = '2/3' }
             'a once-seen Critical (1/5)' = { param($d) $d.bugs[0].replicated = '1/5' }
             'replicated not established with a reason' = { param($d) $d.bugs[0].replicated = 'not established: budget spent before a re-run' }
+            'no_observation_surface after probing the observable part, findings kept' = { param($d) $d.status = 'blocked'; $d.session_sheet.stop_reason = 'no_observation_surface' }
         }
         foreach ($label in $passing.Keys) {
             $e = Test-Variant $passing[$label]
@@ -845,6 +857,7 @@ if ($contractReady) {
             'a plain-string questions_risks element' = { param($d) $d.questions_risks[0] = 'Is a dropped final row acceptable?' }
             'questions_risks kind worry' = { param($d) $d.questions_risks[0].kind = 'worry' }
             'a candidate_charter not in charter form' = { param($d) $d.off_charter[0].candidate_charter = 'Look at uploads' }
+            'no_observation_surface reported as completed' = { param($d) $d.session_sheet.stop_reason = 'no_observation_surface' }
         }
         foreach ($label in $refused.Keys) {
             $e = Test-Variant $refused[$label]
@@ -914,6 +927,112 @@ if ($contractReady) {
     } else {
         Fail 'explorer.md is missing output-contract wording' $missingWording
     }
+}
+
+# --- Explorer observation surface -------------------------------------------
+#
+# W2496, a port of the Claude Code plugin's W2263: the explorer judges only what
+# a tool in its own list can observe. web_fetch is off its tools list, so the
+# runtime holds the rule rather than prose; HTTP is observed with curl -sS -i
+# through run_shell_command; rendered views are never judged from source; and a
+# charter needing an observation no tool can make ends no_observation_surface,
+# which derives status blocked. The tools pin carries its own break-it: the same
+# check run on the agent text with web_fetch added back must fail. The curl
+# rule is written as curl -q -sS -i --max-redirs 0: -q, first, stops a .curlrc
+# `location` line re-enabling redirects, and --max-redirs 0 refuses any that
+# gets through, so no -L is not left to the operator's config. Messages are
+# identical to test-structure.sh.
+
+Write-Host ''
+Write-Host 'Explorer observation surface'
+$ExploreCmd = Join-Path $PluginRoot 'commands/explore.toml'
+
+function Get-ExplorerTools([string[]]$lines) {
+    # The frontmatter's tools list, one tool per entry.
+    $out = New-Object 'System.Collections.Generic.List[string]'
+    if ($lines.Count -eq 0 -or $lines[0] -cne '---') { return ,$out }
+    $inTools = $false
+    for ($i = 1; $i -lt $lines.Count; $i++) {
+        $line = $lines[$i]
+        if ($line -ceq '---') { break }
+        if ($inTools -and $line.StartsWith('  - ', [StringComparison]::Ordinal)) { $out.Add($line.Substring(4)); continue }
+        $inTools = ($line -ceq 'tools:')
+    }
+    return ,$out
+}
+$WantTools = 'read_file grep_search glob run_shell_command'
+# Test-ToolsPin: true only when the agent text's tools list is exactly $WantTools.
+# The pin and its break-it both call this one function.
+function Test-ToolsPin([string[]]$lines) { return ((Get-ExplorerTools $lines) -join ' ') -ceq $WantTools }
+
+if ((Test-Path -LiteralPath $Explorer -PathType Leaf) -and (Test-Path -LiteralPath $ExploreCmd -PathType Leaf)) {
+    $obsLines = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($l in (Read-Lines $Explorer)) { $obsLines.Add($l.TrimEnd([char]13)) }
+    $gotTools = (Get-ExplorerTools $obsLines.ToArray()) -join ' '
+    if (Test-ToolsPin $obsLines.ToArray()) {
+        Pass 'explorer tools are read_file, grep_search, glob and run_shell_command, with no web_fetch'
+    } else {
+        Fail 'explorer tools must be read_file, grep_search, glob and run_shell_command only' "got: $gotTools"
+    }
+    # Break-it: the same pin, run on the agent text with web_fetch added back.
+    $brokenLines = New-Object 'System.Collections.Generic.List[string]'
+    $added = $false
+    foreach ($l in $obsLines) {
+        $brokenLines.Add($l)
+        if (-not $added -and $l -ceq '  - run_shell_command') { $brokenLines.Add('  - web_fetch'); $added = $true }
+    }
+    $brokenTools = Get-ExplorerTools $brokenLines.ToArray()
+    if (-not ($brokenTools -ccontains 'web_fetch')) {
+        Fail "break-it: web_fetch added back to the explorer's tools fails the tools pin" 'could not add web_fetch after run_shell_command in the frontmatter'
+    } elseif (-not (Test-ToolsPin $brokenLines.ToArray())) {
+        Pass "break-it: web_fetch added back to the explorer's tools fails the tools pin"
+    } else {
+        Fail "break-it: web_fetch added back to the explorer's tools fails the tools pin" 'the tools pin accepted a list carrying web_fetch'
+    }
+
+    $obsText = $obsLines -join "`n"
+    $missingObs = Get-MissingNeedles $obsText @(
+        '## What you can observe',
+        '**Observe HTTP with `curl -sS -i`, run through `run_shell_command`.**',
+        '**Never pass `-L` (or `--location`)**',
+        '**Never use `web_fetch` as an oracle source**',
+        '**Judge only what a tool in your own tool list can observe.**',
+        '**Never judge them from HTML, CSS or template source**',
+        '**A charter that needs an observation none of your tools can make ends `no_observation_surface`.**',
+        'Then set `stop_reason: "no_observation_surface"`, which derives `status: "blocked"`.',
+        '| `no_observation_surface` | `blocked` |',
+        'An environment context that names one does not grant it',
+        '`no_observation_surface` is the one exception: it takes precedence over whatever else held.')
+    if ($missingObs -eq '') {
+        Pass 'explorer.md documents What you can observe, curl -sS -i, the rendered-view rule and the no_observation_surface ending'
+    } else {
+        Fail 'explorer.md is missing observation-surface wording' $missingObs
+    }
+    if ($obsText.Contains('`run_shell_command`/`web_fetch`')) {
+        Fail 'explorer.md no longer offers web_fetch as an HTTP surface' '`run_shell_command`/`web_fetch`'
+    } else {
+        Pass 'explorer.md no longer offers web_fetch as an HTTP surface'
+    }
+    $missingCurl = Get-MissingNeedles $obsText @(
+        'Write it as `curl -q -sS -i --max-redirs 0 <url>`',
+        '`-q` must be the first argument, and it stops `curl` reading a `.curlrc`',
+        '`--max-redirs 0` refuses any redirect that still gets through.')
+    if ($missingCurl -eq '') {
+        Pass "explorer.md's curl rule ignores .curlrc (-q first) and refuses redirects (--max-redirs 0)"
+    } else {
+        Fail "explorer.md's curl rule must ignore .curlrc and refuse redirects" $missingCurl
+    }
+
+    $cmdText = ([IO.File]::ReadAllText($ExploreCmd, [Text.Encoding]::UTF8)).Replace("`r", '')
+    $missingCmd = Get-MissingNeedles $cmdText @('curl -sS -i', 'no_observation_surface')
+    if ($cmdText.Contains('web_fetch')) { $missingCmd += ' (still names web_fetch)' }
+    if ($missingCmd -eq '') {
+        Pass 'commands/explore.toml handles no_observation_surface and names no web_fetch'
+    } else {
+        Fail 'commands/explore.toml is missing observation-surface handling' $missingCmd
+    }
+} else {
+    Fail 'observation-surface checks need agents/explorer.md and commands/explore.toml' ''
 }
 
 # --- Root docs & license ----------------------------------------------------

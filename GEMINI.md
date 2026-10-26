@@ -101,6 +101,8 @@ The skill and agent bodies reference Gemini CLI tool names directly. When portin
 | `WebFetch` | `web_fetch` |
 | `list directory` | `list_directory` |
 
+The mapping is for translating prose, not a tool grant: the `explorer` agent deliberately holds no `web_fetch`. It observes HTTP with `curl -sS -i` through `run_shell_command` (see *What you can observe* in `agents/explorer.md`).
+
 Gemini CLI has no first-class "preview pane" question tool, so option comparisons are rendered inline (fenced ASCII blocks or short tables) rather than via a preview field.
 
 ## How this extension relates to `stride-gemini`
