@@ -39,7 +39,7 @@ On Windows, use the PowerShell installer:
 .\stride-gemini-exploratory-testing\install.ps1 -Project   # project-local
 ```
 
-The installers copy `gemini-extension.json`, `GEMINI.md`, and the `commands/`, `skills/`, `agents/`, `lib/`, and `fixtures/` directories into the target extension location.
+The installers copy `gemini-extension.json`, `GEMINI.md`, and the `commands/`, `skills/`, `agents/`, `lib/`, `fixtures/`, and `policies/` directories into the target extension location.
 
 To install straight from `main` without cloning first, pipe the bootstrap installer from raw GitHub to your shell:
 
@@ -154,7 +154,7 @@ The `heuristics` skill is the canonical catalog; [`HEURISTICS.md`](HEURISTICS.md
 Two custom agents live at `agents/<name>.md` and are auto-discovered by Gemini CLI. They are dispatched by the commands, not invoked directly from a user prompt:
 
 - **[`charter-generator`](agents/charter-generator.md)** — read-only. Turns a target into a risk-ranked list of well-formed charters using SFDIPOT and the Nightmare Headline Game, and returns them as structured data. Dispatched by `/charter` and `/nightmare-headline`. It generates charters and runs nothing.
-- **[`explorer`](agents/explorer.md)** — runs one budgeted exploratory session per charter against a running app, applies named heuristics, judges results with oracles, records an SBTM session sheet, and returns structured findings. Operates under an absolute safety boundary — it exercises the app but never runs destructive commands and never touches production or unauthorized systems. Its tools are `read_file`, `grep_search`, `glob` and `run_shell_command`, with no fetch tool: it observes HTTP with `curl -sS -i` and judges only what one of those tools can observe, so a charter that needs a rendered view (layout, colour, contrast) comes back `blocked` with `stop_reason: "no_observation_surface"` instead of a verdict read from HTML source. Dispatched by `/explore`.
+- **[`explorer`](agents/explorer.md)** — runs one budgeted exploratory session per charter against a running app, applies named heuristics, judges results with oracles, records an SBTM session sheet, and returns structured findings. Operates under an absolute safety boundary — it exercises the app but never runs destructive commands and never touches production or unauthorized systems. Its tools are `read_file`, `grep_search`, `glob` and `run_shell_command`, with no fetch tool: it observes HTTP with `curl -sS -i` and judges only what one of those tools can observe, so a charter that needs a rendered view (layout, colour, contrast) comes back `blocked` with `stop_reason: "no_observation_surface"` instead of a verdict read from HTML source. It runs only when its environment context carries `AUTHORIZED_NON_PRODUCTION: yes` and an `ALLOWED_HOSTS` line, each on a line of its own, reaches only the listed hosts, and cleans up everything it started; [`policies/explorer.toml`](policies/explorer.toml) adds Gemini CLI deny rules for the commands it must never run. Dispatched by `/explore`, which writes both lines for you, first in the block; a direct caller must send them or the session ends `blocked`.
 
 ## How this relates to `stride-gemini`
 

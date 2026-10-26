@@ -63,7 +63,7 @@ trap '[ -n "${CLEANUP:-}" ] && rm -rf "$CLEANUP"' EXIT
 cp "$SRC/gemini-extension.json" "$INSTALL_DIR/"
 cp "$SRC/GEMINI.md" "$INSTALL_DIR/"
 [ -f "$SRC/LICENSE" ] && cp "$SRC/LICENSE" "$INSTALL_DIR/"
-for dir in commands skills agents lib fixtures; do
+for dir in commands skills agents lib fixtures policies; do
   mkdir -p "$INSTALL_DIR/$dir"
   cp -a "$SRC/$dir/." "$INSTALL_DIR/$dir/"
 done
@@ -77,6 +77,7 @@ echo "  Skills:   $(ls -d "$INSTALL_DIR/skills"/*/ 2>/dev/null | wc -l | tr -d '
 echo "  Agents:   $(ls "$INSTALL_DIR/agents"/*.md 2>/dev/null | wc -l | tr -d ' ')"
 echo "  Helpers:  $(ls "$INSTALL_DIR/lib" 2>/dev/null | wc -l | tr -d ' ') files in lib/"
 echo "  Fixtures: $(ls "$INSTALL_DIR/fixtures" 2>/dev/null | wc -l | tr -d ' ') files in fixtures/"
+echo "  Policies: $(ls "$INSTALL_DIR/policies"/*.toml 2>/dev/null | wc -l | tr -d ' ') (.toml)"
 echo ""
 echo "Next steps:"
 echo "  1. Restart Gemini CLI so it picks up the new extension"

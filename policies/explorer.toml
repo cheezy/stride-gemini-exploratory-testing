@@ -1,0 +1,53 @@
+# Gemini CLI policy rules for the extension's `explorer` subagent.
+#
+# Gemini CLI loads every policies/*.toml in an installed extension at the
+# Extension tier. Each rule below is scoped with subagent = "explorer", so it
+# binds only the explorer's own run_shell_command calls and never the main
+# session or another agent. Every rule is a deny: Gemini CLI ignores allow
+# rules (and rules that list yolo mode) from an extension, so an allow rule
+# here would only mislead a reader. No rule sets `modes`, so each applies in
+# every approval mode, interactive and headless alike.
+#
+# The rules back up the explorer's safety boundary (agents/explorer.md); they
+# do not replace it. They are best-effort: a command wrapped in another
+# command (sudo, xargs, timeout, a quoted argument) can slip past a prefix or
+# a regex, and a User, Workspace or Admin policy outranks the Extension tier.
+# None of them touches the explorer's own cleanup, which uses kill <pid>,
+# kill -9 <pid>, rm -f -- <path> and rmdir only.
+#
+# Keep every rule as one `key = value` per line with single-line values:
+# lib/test-structure.ps1 reads this file as text. Never put a quantifier after
+# a parenthesised group in a commandRegex: Gemini CLI drops such a pattern as a
+# possible ReDoS with only a debug warning.
+
+[[rule]]
+toolName = "run_shell_command"
+subagent = "explorer"
+commandRegex = 'rm[^"]*\s-(?:[A-Za-z]*[rR]|-recursive)'
+decision = "deny"
+priority = 900
+denyMessage = "The explorer never deletes recursively. Remove each file you created with rm -f -- <path>, then the scratch directory with rmdir."
+
+[[rule]]
+toolName = "run_shell_command"
+subagent = "explorer"
+commandRegex = 'rm\s[^"]*[*?]'
+decision = "deny"
+priority = 900
+denyMessage = "The explorer never deletes with a glob or wildcard. Name each file you created, one rm -f -- <path> at a time."
+
+[[rule]]
+toolName = "run_shell_command"
+subagent = "explorer"
+commandPrefix = ["pkill", "killall"]
+decision = "deny"
+priority = 900
+denyMessage = "The explorer never stops a process by name. Stop only a process you started, by its recorded PID."
+
+[[rule]]
+toolName = "run_shell_command"
+subagent = "explorer"
+commandPrefix = "git push"
+decision = "deny"
+priority = 900
+denyMessage = "The explorer never pushes to a repository."
