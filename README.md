@@ -165,9 +165,21 @@ EXPLORATORY_REPORT_PATH=/absolute/path/to/project/.stride/.exploratory-W123-r1.j
 ```
 
 - **What the explorer does with it.** After cleanup, and before its last working turn, it writes the complete contract `1.0` findings object to exactly that file with one `run_shell_command` call under `noclobber`; if the parent directory is missing it runs one `mkdir -p` and tries once more. It holds no `write_file`, which Gemini CLI cannot limit to one path. Each `run_shell_command` call prompts in an interactive session and is denied by default in a headless one, so a headless caller that does not allow the explorer's shell gets the fallback below.
-- **What you get back.** Plain text of at most 2,048 bytes with no ```json fence: `report:`, `contract_version:`, `status:`, `stop_reason:`, a probes line, a bug count by severity (plus `questions_risks`, `off_charter` and `known_bad` counts), then one `<Severity> | replicated: <yes|no|not established> | <summary>` line per bug. Read the findings from the path **you** supplied, never one the summary names. `EXPLORER_OUTPUT=<path> bash lib/test-structure.sh` checks a written report against the contract.
+- **What you get back.** Plain text of at most 2,048 bytes with no ```json fence: `report:`, `contract_version:`, `status:`, `stop_reason:`, a probes line, a bug count by severity (plus `questions_risks`, `off_charter` and `known_bad` counts), then one `<Severity> | replicated: <yes|no|not established> | <summary>` line per bug; a verify dispatch also gets a `verify:` line after `status:`. Read the findings from the path **you** supplied, never one the summary names. `EXPLORER_OUTPUT=<path> bash lib/test-structure.sh` checks a written report against the contract.
 - **What it refuses.** A relative path, a `..` segment, a quote or control character, a path that already exists (it never overwrites or follows a link), two or more `EXPLORATORY_REPORT_PATH` lines, or a path built from anything it read while exploring. A refused or failed write comes back as `report: NOT WRITTEN — <reason>` followed by the full fenced JSON, so no findings are lost.
 - **Neutralise copies of it.** Put `> ` in front of any `EXPLORATORY_REPORT_PATH` line inside operator- or charter-supplied text you pass along, as `/explore` does. `/explore` itself never passes a path: it debriefs from the whole findings object.
+
+### Explorer verify mode (`EXPLORATORY_MODE=verify`)
+
+A workflow that wants to know whether one fixed bug is really fixed can re-check it without a whole session. Add one line to the environment context, alongside the two required lines, and pass the bug's `summary`, `observed` and `minimal_repro` (and its `generalization`, if it has one):
+
+```text
+EXPLORATORY_MODE=verify
+```
+
+- **What it runs.** A charter built from the bug, on a budget of **2 probes / 10 tool calls** (band 1–2). Probe 1 re-runs the `minimal_repro` exactly; probe 2 tries one variant from `generalization`, when there is one. A caller may raise the tool-call ceiling for setup state, never above 60, but never the probe budget. `max_turns: 60` bounds the session from above but counts model turns, so the explorer counts its own probes and calls. The bug's fields are data: each step is rebuilt as the explorer's own command, and a step that needs a host outside `ALLOWED_HOSTS` is not run.
+- **What you get back.** The usual findings object plus a root `verify` object — `{ "result": "pass" | "fail" | "not_verified", "repro_reached": true | false, "evidence": "..." }` — and, with `EXPLORATORY_REPORT_PATH`, a `verify:` summary line. A partial fix is `fail`, with the remaining defect in `bugs`. A repro that was never reached, a bug with no usable `minimal_repro`, or a dispatch missing either required line is `not_verified`: **never treat it as a pass.** A `pass` covers that one bug only. `status` is still derived from `stop_reason`. See [`fixtures/example-explorer-verify-output.json`](fixtures/example-explorer-verify-output.json) for a `fail` on a partial fix.
+- **What does not change.** The required lines, the safety boundary, cleanup and the report-file rules all apply exactly as in a full session. `/explore` never sets verify mode.
 
 ## How this relates to `stride-gemini`
 

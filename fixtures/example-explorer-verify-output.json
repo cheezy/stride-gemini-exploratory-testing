@@ -1,0 +1,58 @@
+{
+  "contract_version": "1.0",
+  "charter": "Explore the tenant check on the CSV receipt import with the bug's minimal_repro (import any CSV exported from <tenant B> while logged in as <tenant A>; one row is enough) to discover whether another tenant's rows are still accepted into <tenant A>'s receipt list and running total.",
+  "status": "completed",
+  "session_sheet": {
+    "tester": "explorer custom agent (stride-gemini-exploratory-testing)",
+    "probe_budget": 2,
+    "probes_attempted": 2,
+    "probes_with_finding": 2,
+    "on_charter_probes": 2,
+    "off_charter_probes": 0,
+    "tool_calls_used": 9,
+    "areas_covered": [
+      "CSV import screen (demo.example.com, <tenant A> account)",
+      "Post-import receipt list and running expense total"
+    ],
+    "heuristics_applied": ["Follow the Data", "Goldilocks"],
+    "stop_reason": "charter_quiet"
+  },
+  "notes": [
+    { "tag": "test-idea", "text": "Probe 1: the minimal_repro as written, a 1-row <tenant B> export imported as <tenant A>, re-run once from a clean start." },
+    { "tag": "surprise", "text": "The row is now rejected from the receipt list with \"Row belongs to another account\", yet the running total still rises by its amount." },
+    { "tag": "test-idea", "text": "Probe 2: the generalization's 40-row export; all 40 rows are rejected from the list and the total rises by their sum." }
+  ],
+  "bugs": [
+    {
+      "summary": "Cross-tenant import fix is partial: rejected rows still add to the importing tenant's total",
+      "repro": "Log in as <tenant A>; note the running expense total; import a 1-row receipts CSV exported from <tenant B>; compare the receipt list and the total with their values before the import.",
+      "observed": "The row was reported rejected and is absent from the receipt list, but <tenant A>'s running total rose by the row's amount.",
+      "why_wrong": "Data must never cross tenants; <tenant B>'s amount now sits in <tenant A>'s expense total.",
+      "oracle": "Never/Always invariant: data never crosses tenants",
+      "severity": "Critical",
+      "minimal_repro": "Import a 1-row CSV exported from <tenant B> while logged in as <tenant A>, then read the running total.",
+      "worst_observed": "<tenant A>'s running expense total includes the summed amounts of 40 rejected <tenant B> rows.",
+      "generalization": "Shown with a 1-row and a 40-row export; not tried with other tenant pairs.",
+      "stakeholder_impact": "Every tenant: another tenant's amounts can be pushed into an account's expense total, which is money wrong across a tenant boundary.",
+      "replicated": "2/2",
+      "provisional": false
+    }
+  ],
+  "questions_risks": [
+    { "kind": "question", "text": "Is the running total recomputed from stored receipts, or is it a counter the import updates before the tenant check runs?" }
+  ],
+  "off_charter": [
+    { "item": "The receipt API and email-in import paths were not re-checked against the new tenant check.", "candidate_charter": "Explore the receipt API and email-in import paths with exports from another tenant to discover whether they apply the new tenant check." }
+  ],
+  "known_bad": [],
+  "debrief": {
+    "explored": "A verify-mode re-check of the cross-tenant import Critical: probe 1 ran the minimal_repro (re-run once from a clean start), probe 2 the generalization's 40-row export. 2 of 2 probes, 9 tool calls; stopped because the verdict was in.",
+    "found": "verify result fail: the fix is partial. Rows from another tenant no longer reach <tenant A>'s receipt list, but their amounts still reach its running total (2/2, Critical).",
+    "unknown": "This verify result covers the cross-tenant import bug only, never the original charter's other risks; other import paths and other tenant pairs were not tried."
+  },
+  "verify": {
+    "result": "fail",
+    "repro_reached": true,
+    "evidence": "The 1-row <tenant B> export was rejected from <tenant A>'s receipt list, yet <tenant A>'s running total rose by its amount; the 40-row export did the same with the summed amounts."
+  }
+}
