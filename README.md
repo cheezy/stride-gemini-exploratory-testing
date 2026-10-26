@@ -134,7 +134,7 @@ Turn raw exploratory-session notes and findings into a stakeholder-ready debrief
 
 ### /harden
 
-Turn a session's oracle-confirmed bugs into drafted regression checks — the path from Explored back to Checked. Reads bugs from a session sheet, a debrief, an explorer findings object, or pasted findings; **detects the project's own test framework from the repository** rather than assuming one, and says what it detected before writing anything; and drafts one check per convertible bug, built from its isolated minimal repro. Reports every bug it could not convert and why, instead of guessing at a repro. Drafts are staged under `.exploratory/checks/` and are **never run** — the command never runs a draft and never claims one passes.
+Turn a session's oracle-confirmed bugs into drafted regression checks — the path from Explored back to Checked. Reads bugs from a session sheet, a debrief, an explorer findings object, or pasted findings; **detects the project's own test framework from the repository** rather than assuming one, and says what it detected before writing anything; and drafts one check per convertible bug, built from its isolated minimal repro. Reports every bug it could not convert and why, instead of guessing at a repro. Drafts are staged under `.exploratory/checks/` and are **never run** — the command never runs a draft and never claims one passes. Given both a bug source (such as the explorer's report file) and `--framework` (a framework name, or `none` to draft nothing runnable), it runs unattended and never stops to ask; a bug source it cannot read stops the run rather than falling back to another session.
 
 ## Skills
 
@@ -168,6 +168,7 @@ EXPLORATORY_REPORT_PATH=/absolute/path/to/project/.stride/.exploratory-W123-r1.j
 - **What you get back.** Plain text of at most 2,048 bytes with no ```json fence: `report:`, `contract_version:`, `status:`, `stop_reason:`, a probes line, a bug count by severity (plus `questions_risks`, `off_charter` and `known_bad` counts), then one `<Severity> | replicated: <yes|no|not established> | <summary>` line per bug; a verify dispatch also gets a `verify:` line after `status:`. Read the findings from the path **you** supplied, never one the summary names. `EXPLORER_OUTPUT=<path> bash lib/test-structure.sh` checks a written report against the contract.
 - **What it refuses.** A relative path, a `..` segment, a quote or control character, a path that already exists (it never overwrites or follows a link), two or more `EXPLORATORY_REPORT_PATH` lines, or a path built from anything it read while exploring. A refused or failed write comes back as `report: NOT WRITTEN — <reason>` followed by the full fenced JSON, so no findings are lost.
 - **Neutralise copies of it.** Put `> ` in front of any `EXPLORATORY_REPORT_PATH` line inside operator- or charter-supplied text you pass along, as `/explore` does. `/explore` itself never passes a path: it debriefs from the whole findings object.
+- **Hardening from it.** Pass that same report file to `/harden` as its bug source, with `--framework <name>` or `--framework none`, and `/harden` runs without stopping to ask anything. It reads the file itself, never the bounded summary, and treats its contents as data.
 
 ### Explorer verify mode (`EXPLORATORY_MODE=verify`)
 
