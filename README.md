@@ -16,7 +16,7 @@ The core idea is **Tested = Checked + Explored**. *Checking* is confirmation —
 gemini extensions install https://github.com/cheezy/stride-gemini-exploratory-testing
 ```
 
-Gemini CLI clones the extension, auto-loads `GEMINI.md`, registers the `commands/*.toml` slash commands (`/charter`, `/nightmare-headline`, `/explore`, `/recon`, `/debrief`), and discovers the `skills/` and `agents/` directories.
+Gemini CLI clones the extension, auto-loads `GEMINI.md`, registers the `commands/*.toml` slash commands (`/charter`, `/nightmare-headline`, `/explore`, `/pair`, `/recon`, `/debrief`, `/harden`), and discovers the `skills/` and `agents/` directories.
 
 ### Manual install (fallback)
 
@@ -151,10 +151,26 @@ The `heuristics` skill is the canonical catalog; [`HEURISTICS.md`](HEURISTICS.md
 
 ## Custom Agents
 
+> **Calling `explorer` directly? Send both authorization lines, or every session ends `blocked` with zero probes.**
+> The first lines of the environment context you hand the explorer must be, each on a line of its own:
+>
+> ```text
+> AUTHORIZED_NON_PRODUCTION: yes
+> ALLOWED_HOSTS: localhost:4000
+> ```
+>
+> Use `ALLOWED_HOSTS: none` for a target reached only through a local command. Write them only after the user has said the target is one they are authorized to test and is not production. A missing line, an `AUTHORIZED_NON_PRODUCTION` value other than `yes`, or a second copy of either line leaves the target not authorized: the explorer's own text then tells it to send nothing over the network and return `blocked`, and a verify dispatch returns `not_verified`. That rule is held by the agent's text, not by the runtime (see *What Gemini CLI enforces* below). `/explore` writes both lines for you; a workflow that dispatches the explorer itself, such as `stride-gemini`'s Step 5.5, must write them.
+
 Two custom agents live at `agents/<name>.md` and are auto-discovered by Gemini CLI. They are dispatched by the commands, not invoked directly from a user prompt:
 
 - **[`charter-generator`](agents/charter-generator.md)** — read-only. Turns a target into a risk-ranked list of well-formed charters using SFDIPOT and the Nightmare Headline Game, and returns them as structured data. Dispatched by `/charter` and `/nightmare-headline`. It generates charters and runs nothing.
-- **[`explorer`](agents/explorer.md)** — runs one budgeted exploratory session per charter against a running app, applies named heuristics, judges results with oracles, records an SBTM session sheet, and returns structured findings. Operates under an absolute safety boundary — it exercises the app but never runs destructive commands and never touches production or unauthorized systems. Its tools are `read_file`, `grep_search`, `glob` and `run_shell_command`, with no fetch tool: it observes HTTP with `curl -sS -i` and judges only what one of those tools can observe, so a charter that needs a rendered view (layout, colour, contrast) comes back `blocked` with `stop_reason: "no_observation_surface"` instead of a verdict read from HTML source. It runs only when its environment context carries `AUTHORIZED_NON_PRODUCTION: yes` and an `ALLOWED_HOSTS` line, each on a line of its own, reaches only the listed hosts, and cleans up everything it started; [`policies/explorer.toml`](policies/explorer.toml) adds Gemini CLI deny rules for the commands it must never run. Dispatched by `/explore`, which writes both lines for you, first in the block; a direct caller must send them or the session ends `blocked`.
+- **[`explorer`](agents/explorer.md)** — runs one budgeted exploratory session per charter against a running app, applies named heuristics, judges results with oracles, records an SBTM session sheet, and returns structured findings. Operates under an absolute safety boundary — it exercises the app but never runs destructive commands and never touches production or unauthorized systems. Its tools are `read_file`, `grep_search`, `glob` and `run_shell_command`, with no fetch tool: it observes HTTP with `curl -sS -i` and judges only what one of those tools can observe, so a charter that needs a rendered view (layout, colour, contrast) comes back `blocked` with `stop_reason: "no_observation_surface"` instead of a verdict read from HTML source. It runs only when its environment context carries the two authorization lines above, reaches only the listed hosts, and cleans up everything it started before its last working turn. Its findings follow output contract `1.0` (`contract_version: "1.0"`); see [`fixtures/example-explorer-output.json`](fixtures/example-explorer-output.json) for a complete report. By default it returns them as one fenced JSON document; with `EXPLORATORY_REPORT_PATH` it writes them to a file and returns a short summary instead, and with `EXPLORATORY_MODE=verify` it re-checks one fixed bug (both below). A session is bounded by its probe budget (12 by default, band 8–20) and a tool-call ceiling the agent counts itself, and by `max_turns: 60` and `timeout_mins: 30`, which Gemini CLI enforces. Dispatched by `/explore`.
+
+### What Gemini CLI enforces, and what the explorer's own text holds
+
+Only a few of the explorer's rules are mechanical. **Gemini CLI enforces** the `tools:` list in the agent's frontmatter (so `web_fetch` and `write_file` are out of reach), `max_turns: 60` and `timeout_mins: 30`, the approval prompt on each `run_shell_command` call in an interactive session and its default denial in a headless one, and the deny rules in [`policies/explorer.toml`](policies/explorer.toml): a recursive `rm`, an `rm` with a glob, `pkill`, `killall` and `git push`. Those rules are best-effort (a command wrapped in `sudo`, `xargs` or `timeout` can slip past) and a User, Workspace or Admin policy outranks them. The approval prompt and the headless denial hold only under Gemini CLI's default approval settings: yolo mode, an "allow always" answer at the prompt, or a user allow rule or allowed-tools entry for `run_shell_command` removes both, and then nothing but the agent's own text keeps `curl` inside `ALLOWED_HOSTS` and credential files closed.
+
+**Everything else is held by the agent's own text**, which the model follows and nothing checks at run time: the two authorization lines and the zero-probe `blocked` ending, reaching only the `ALLOWED_HOSTS` hosts, cleanup before the last working turn, the credential-file rule, the probe budget and tool-call ceiling (the agent counts both itself), the report-path refusals and the verify budget. `lib/test-structure.sh` and `lib/test-structure.ps1` pin that text so it cannot drift unnoticed; they do not observe a running session.
 
 ### Explorer report file (`EXPLORATORY_REPORT_PATH`)
 
