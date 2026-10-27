@@ -55,6 +55,10 @@
 # otherwise clones and checks the clone's name, never the working directory,
 # with a break-it for each half. The policy pins also cover the kill rules for
 # PID 0 and negative PIDs. Running the installers is left to test-install.ps1.
+# And it pins /explore as the consumer of output contract 1.0: its root key
+# list against the explorer's table, the contract_version readings, status
+# from stop_reason, confirmed bugs only when replicated and not provisional,
+# and known_bad kept out of the bug list, each with a break-it.
 #
 # Offline and read-only — it never executes or evaluates any extension file; it
 # checks existence, parses the manifest and the explorer JSON as data with
@@ -1712,6 +1716,88 @@ if ((Test-Path -LiteralPath $Explorer -PathType Leaf) -and (Test-Path -LiteralPa
     }
 } else {
     Fail 'report-file checks need agents/explorer.md and commands/explore.toml' ''
+}
+
+# --- /explore reads contract 1.0 --------------------------------------------
+#
+# A port of the consumer half of the Claude Code plugin's W2262: /explore
+# parses each explorer result by output contract 1.0. These pins keep its root
+# key list equal to the explorer's own root-key table (verify-mode-only keys
+# aside), the three readings of contract_version (1.0, absent, any other
+# value) with no session dropped for its version, status derived from
+# stop_reason, a bug called confirmed only when replicated is k/n with k of 2
+# or more and provisional is false, known_bad kept out of the bug list and
+# the backlog, and the typed questions_risks and off_charter elements. The
+# command points at the explorer's Output contract rather than restating it.
+# Each pin carries a break-it; messages are identical in test-structure.sh.
+
+Write-Host ''
+Write-Host '/explore reads contract 1.0'
+
+$CtNeedles = @(
+    "The explorer agent's *Output contract* section is the one definition of every key, field and element type",
+    'Read each parsed result by its `contract_version`:',
+    '- **`"1.0"`** — the contract as the explorer defines it.',
+    '- **Absent** — an explorer from before `1.0`. The session is still usable, never an error',
+    'a missing `bugs[].replicated` as `"not established: older explorer"`',
+    '- **Any other value** — a contract this command was not written for. Keep the session',
+    'A version is never a reason to drop a session or to invent a value.',
+    '**`status` is derived, never taken on trust.**',
+    '*Status from `stop_reason`* table',
+    'the `stop_reason` wins',
+    '**A bug is confirmed only when `replicated` is `<k>/<n>` with *k* of 2 or more and `provisional` is `false`.**',
+    'Never call such a bug confirmed or reproducible',
+    'count confirmed and unconfirmed bugs separately',
+    'keep the merge `provisional` only if every merged entry was',
+    "union every session's ``known_bad`` entries, each with its ``basis``",
+    'never rank them with the bug list, never count them as bugs, and never add them to the backlog',
+    "(each one's ``candidate_charter``; when an older explorer gave only an ``item``, frame a charter from it)",
+    'questions first and then risks, by `kind`'
+)
+
+# The explorer's root-key table as the command must list it:
+# "`a`, `b`, ..., and `z`", verify-mode-only keys left out.
+function Get-CtRootKeys([string]$t) {
+    $keys = New-Object 'System.Collections.Generic.List[string]'
+    $in = $false
+    foreach ($line in ($t -split "`n")) {
+        if ($line -ceq '| Key | Required | Type | Notes |') { $in = $true; continue }
+        if (-not $in) { continue }
+        if ($line.StartsWith('|---')) { continue }
+        if (-not $line.StartsWith('|')) { break }
+        $cells = $line.Split('|')
+        if ($cells[2].Trim() -cne 'verify mode only') { $keys.Add($cells[1].Trim()) }
+    }
+    if ($keys.Count -eq 0) { return '' }
+    if ($keys.Count -eq 1) { return "and $($keys[0])" }
+    return (($keys.GetRange(0, $keys.Count - 1)) -join ', ') + ', and ' + $keys[$keys.Count - 1]
+}
+
+$CtCmdCheck = {
+    param($t)
+    $out = Get-MissingNeedles $t $CtNeedles
+    $keys = Get-CtRootKeys $ctExplorer
+    if (-not ($keys.Contains('`contract_version`') -and $keys.Contains('`known_bad`'))) { $out += ' [could not read the explorer root-key table]' }
+    if (-not $t.Contains("in output contract ``1.0``: root keys $keys")) { $out += " [root keys differ from the explorer table: $keys]" }
+    if (-not $ctExplorer.Contains('| `contract_version` | yes | string | Always `"1.0"`')) { $out += ' [explorer contract_version is not "1.0"]' }
+    if ($t.Contains('with keys `charter`, `status` (`completed` | `stopped_early` | `blocked`)')) { $out += ' [stale: the pre-1.0 key list]' }
+    return $out
+}
+
+if ((Test-Path -LiteralPath $Explorer -PathType Leaf) -and (Test-Path -LiteralPath $ExploreCmd -PathType Leaf)) {
+    $ctExplorer = Read-Text $Explorer
+    $ctCmd = Read-Text $ExploreCmd
+
+    Test-Pin 'commands/explore.toml reads contract_version, derives status, confirms only replicated non-provisional bugs and keeps known_bad out of the bug list' `
+        'commands/explore.toml does not consume output contract 1.0' $CtCmdCheck $ctCmd
+    Test-BreakIt 'break-it: deleting the never-drop-for-version rule fails the /explore contract pin' $ctCmd `
+        $ctCmd.Replace('A version is never a reason to drop a session or to invent a value.', '') $CtCmdCheck
+    Test-BreakIt 'break-it: deleting the confirmed-bug rule fails the /explore contract pin' $ctCmd `
+        $ctCmd.Replace('**A bug is confirmed only when `replicated` is `<k>/<n>` with *k* of 2 or more and `provisional` is `false`.**', '') $CtCmdCheck
+    Test-BreakIt 'break-it: dropping known_bad from the root key list fails the /explore contract pin' $ctCmd `
+        $ctCmd.Replace(' `known_bad`, and `debrief`', '') $CtCmdCheck
+} else {
+    Fail '/explore contract checks need agents/explorer.md and commands/explore.toml' ''
 }
 
 # --- Explorer verify mode ---------------------------------------------------
