@@ -126,6 +126,8 @@ Plan and run exploratory testing end to end against a target — generate charte
 
 It reads each session by the explorer's output contract `1.0`. It takes `status` from `stop_reason`, shows each bug's `replicated` count and `provisional` flag beside its severity, and calls a bug confirmed only when it reproduced at least twice and its magnitude is settled; the rest stay in the list, labelled as seen once, not established or provisional. `known_bad` entries are reported as already-known behaviour, never as bugs. A result with no `contract_version` (an older explorer) or one it does not know is still used, read by the `1.0` keys, and the version is named under Unknown.
 
+It also asks, optionally, for issues your team already knows about, pasted or as a file that lists them, and hands them to every session as a `KNOWN_ISSUES:` block. A session that meets one of them, no worse than described, files it under `known_bad` instead of reporting it as a new bug; anything worse is still a bug.
+
 ### /pair
 
 Pair with a human who is driving the application themselves. They report what they did and saw; the assistant suggests the next probe and names the heuristic lens it came from, judges results with oracles, works confirmed defects through RIMGEA, tracks which areas and variables have been neglected and says so unprompted, and keeps the SBTM session sheet and off-charter parking lot on their behalf. This is the inversion of `/explore`: the human is the only actor that touches the product, the assistant never drives it and never dispatches the explorer, and the whole command is a conversation inside the human's wall-clock time box. Its terminal state is a session sheet on disk — hand that to `/debrief`.

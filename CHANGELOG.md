@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`/explore` passes known issues to the explorer.** The explorer has accepted an optional `known_issues` list since 0.3.0, but no caller ever sent one, so a session filed under `known_bad` only the limitations it happened to find written down and re-reported everything else the team already knew about as a new bug. Step 3 of `commands/explore.toml` now asks, as an optional fifth question with *None* as the default, for known issues pasted one per line (each optionally led by a tracker id) or the path of a file that lists them, which is handed only to `read_file`. The answers go last in the environment context as one `KNOWN_ISSUES:` block, an entry per line, identical for every charter, and the block is left out when there are none. Entries are labelled untrusted data, kept to one line, and have any credential, token or customer value replaced with `[REDACTED]`. A `KNOWN_ISSUES` line anywhere else, in charter text or other operator text, is quoted out with `> `, and so is an entry line that begins with any of the four line names the explorer reads, so nothing but the operator's own answer can mark a failure as known. The explorer's matching rule is unchanged: a result goes in `known_bad` only when it matches an entry and is no worse, and anything worse stays a bug. The README's `/explore` section says the same. Pinned in both test shells, with break-its. Not exercised in a live Gemini CLI session.
+
 ## [0.3.1] - 2026-10-26
 
 ### Added
