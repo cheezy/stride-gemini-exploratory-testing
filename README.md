@@ -47,6 +47,10 @@ To install straight from `main` without cloning first, pipe the bootstrap instal
 curl -fsSL https://raw.githubusercontent.com/cheezy/stride-gemini-exploratory-testing/main/install.sh | bash
 ```
 
+On Windows, `irm https://raw.githubusercontent.com/cheezy/stride-gemini-exploratory-testing/main/install.ps1 | iex` does the same.
+
+Where the files come from: run as a file, an installer copies from its own directory when that directory's `gemini-extension.json` is named `stride-gemini-exploratory-testing`; piped, or beside a manifest with any other name, it clones a fresh copy with `git` and checks that copy's name before installing anything. It never installs from the directory you run it in, so the one-liner is safe to run from inside another extension's checkout. `lib/test-install.sh` and `lib/test-install.ps1` check all of this with a stub `git` and a temporary home directory.
+
 ## Quick start
 
 Run your first exploratory session end to end, against an app you are authorized to test:

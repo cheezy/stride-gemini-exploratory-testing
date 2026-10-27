@@ -49,6 +49,11 @@
 # reference, GEMINI.md's triggers, command rows and safety rules, and the
 # installers copying references/ on a fresh install and a re-install, each
 # with a break-it.
+# And it pins the installers' source: each takes it only from its own
+# checkout when that manifest is named stride-gemini-exploratory-testing, and
+# otherwise clones and checks the clone's name, never the working directory,
+# with a break-it for each half. The policy pins also cover the kill rules for
+# PID 0 and negative PIDs. Running the installers is left to test-install.sh.
 #
 # Offline and read-only — it never executes or evaluates any extension file; it
 # checks existence, parses the manifest and the explorer JSON as data with
@@ -1271,6 +1276,25 @@ sb_kill_problems() { printf '%s\n' "$1" | python3 -I -c "$SB_POLICY_PY" kill; }
 SB_KILL_FIRST_RX="commandRegex = '(?:kill|[^\"\\s;&|]*/kill)\\s+(?:0+(?:[\\s\"\\\\;&|)]|\$)|-[0-9]+\\s*(?:[\"\\\\;&|)]|\$))'"
 SB_KILL_LATER_RX="commandRegex = '(?:kill|[^\"\\s;&|]*/kill)\\s+[^\"\\s\\\\;&|][^\"\\\\;&|]*\\s(?:-[0-9]+|0+)(?:[\\s\"\\\\;&|)]|\$)'"
 
+# sb_install_source_problems — each installer takes its source only from its
+# own file's directory, and only when that manifest names this extension;
+# piped (no script file) it clones and checks the clone's name. The working
+# directory is never a source. Read from the two installers' joined text.
+SB_INSTALL_SOURCE_NEEDLES=(
+  'SCRIPT_PATH="${BASH_SOURCE[0]:-}"'
+  'if [ -n "$SCRIPT_PATH" ] && [ -f "$SCRIPT_PATH" ]; then'
+  '[ "$(manifest_name "$SCRIPT_DIR/gemini-extension.json")" = "$EXT_NAME" ]; then'
+  '[ "$(manifest_name "$SRC/gemini-extension.json")" != "$EXT_NAME" ]; then'
+  'if ($PSCommandPath) {'
+  "if ((Get-ManifestName (Join-Path \$ScriptDir 'gemini-extension.json')) -ceq \$ExtName) {"
+  "(Get-ManifestName (Join-Path \$Src 'gemini-extension.json')) -cne \$ExtName"
+)
+sb_install_source_problems() {
+  missing_needles "$1" "${SB_INSTALL_SOURCE_NEEDLES[@]}"
+  case "$1" in *'dirname "${BASH_SOURCE[0]}"'*) printf ' [stale: dirname of BASH_SOURCE, which is the working directory when piped]' ;; esac
+  case "$1" in *'$MyInvocation.MyCommand.Path'*) printf ' [stale: $MyInvocation.MyCommand.Path, which names the caller under iex]' ;; esac
+}
+
 sb_installer_problems() {
   case "$1" in *'for dir in commands skills agents lib fixtures policies; do'*) ;; *) printf ' [install.sh does not copy policies/]' ;; esac
   case "$1" in *"'lib', 'fixtures', 'policies')"*) ;; *) printf ' [install.ps1 does not copy policies/]' ;; esac
@@ -1342,6 +1366,15 @@ $(LC_ALL=C tr -d '\r' < "$INSTALL_PS1")"
     "an installer does not copy policies/" sb_installer_problems "$SB_INSTALLERS"
   break_it "break-it: dropping policies from install.sh fails the installers pin" "$SB_INSTALLERS" \
     "$(cut_text "$SB_INSTALLERS" ' fixtures policies; do')" sb_installer_problems
+
+  pin_check "install.sh and install.ps1 take their source only from their own checkout with this extension's manifest name, never the working directory" \
+    "an installer can take its source from the working directory or another extension's checkout" sb_install_source_problems "$SB_INSTALLERS"
+  break_it "break-it: dropping install.sh's manifest-name check fails the installer-source pin" "$SB_INSTALLERS" \
+    "$(cut_text "$SB_INSTALLERS" ' = "$EXT_NAME" ]; then')" sb_install_source_problems
+  break_it "break-it: install.sh taking dirname of BASH_SOURCE again fails the installer-source pin" "$SB_INSTALLERS" \
+    "$(printf '%s\n' "$SB_INSTALLERS" | LC_ALL=C awk '{ print } $0 == "SRC=\"\"" { print "SCRIPT_DIR=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")\" && pwd)\"" }')" sb_install_source_problems
+  break_it "break-it: dropping install.ps1's \$PSCommandPath test fails the installer-source pin" "$SB_INSTALLERS" \
+    "$(cut_text "$SB_INSTALLERS" '$PSCommandPath')" sb_install_source_problems
 else
   nope "safety-boundary checks need agents/explorer.md, commands/explore.toml, skills/heuristics/SKILL.md, policies/explorer.toml, install.sh and install.ps1" ""
 fi

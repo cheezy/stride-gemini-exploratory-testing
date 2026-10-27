@@ -63,22 +63,41 @@ if ($Project) {
     Write-Host "Installing $ExtName into `$env:USERPROFILE\.gemini\extensions\ (global)..."
 }
 
-New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+# The "name" of a gemini-extension.json, or $null when it cannot be read.
+function Get-ManifestName([string]$manifest) {
+    if (-not (Test-Path -LiteralPath $manifest -PathType Leaf)) { return $null }
+    try { return [string]((Get-Content -LiteralPath $manifest -Raw | ConvertFrom-Json).name) } catch { return $null }
+}
 
-# Source: the directory this script lives in if it already contains the
-# extension files, otherwise clone a fresh copy to a temp dir.
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+# Source: this script's own checkout only when the script runs from a file
+# whose directory holds a manifest named $ExtName. $PSCommandPath is set only
+# for this script run as a file; under `irm ... | iex` it is empty (while
+# $MyInvocation can name whatever script called iex, in some other checkout).
+# So a piped run, or a script beside some other manifest, never trusts that
+# directory: it clones a fresh copy instead and checks the clone's manifest
+# name too. The working directory is never a source.
+$Src = $null
 $Cleanup = $null
-if (Test-Path (Join-Path $ScriptDir 'gemini-extension.json')) {
-    $Src = $ScriptDir
-} else {
+if ($PSCommandPath) {
+    $ScriptDir = Split-Path -Parent $PSCommandPath
+    if ((Get-ManifestName (Join-Path $ScriptDir 'gemini-extension.json')) -ceq $ExtName) {
+        $Src = $ScriptDir
+    }
+}
+if (-not $Src) {
     $Tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
     New-Item -ItemType Directory -Force -Path $Tmp | Out-Null
     $Cleanup = $Tmp
     Write-Host "Downloading from $Repo..."
     git clone --quiet --depth 1 $Repo (Join-Path $Tmp $ExtName)
     $Src = Join-Path $Tmp $ExtName
+    if ($LASTEXITCODE -ne 0 -or (Get-ManifestName (Join-Path $Src 'gemini-extension.json')) -cne $ExtName) {
+        Remove-Item -Recurse -Force $Cleanup
+        throw "The downloaded copy is not $ExtName (git clone failed, or its gemini-extension.json names another extension); nothing was installed."
+    }
 }
+
+New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 
 try {
     Copy-Item (Join-Path $Src 'gemini-extension.json') -Destination $InstallDir -Force

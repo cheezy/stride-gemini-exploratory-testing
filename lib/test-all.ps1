@@ -1,15 +1,17 @@
 # Top-level smoke-test runner for the stride-gemini-exploratory-testing extension.
 # PowerShell mirror of test-all.sh.
 #
-# Runs the structure check and the frontmatter check in sequence and exits
-# non-zero if either fails. Offline and read-only — suitable for gating a
-# release.
+# Runs the structure check, the frontmatter check and the installer source
+# check in sequence and exits non-zero if any fails. Offline, and it writes
+# nothing outside a temp directory: the installer check runs install.ps1 with
+# USERPROFILE pointed at a fresh temp directory and a stub git — suitable for
+# gating a release.
 #
 # Usage:
 #   pwsh -NoProfile -File lib\test-all.ps1
 #   (or from Windows PowerShell 5.1:  powershell -File lib\test-all.ps1)
 #
-# Exit code: 0 only if BOTH checks pass; 1 if either fails.
+# Exit code: 0 only if EVERY check passes; 1 if any fails.
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -37,6 +39,10 @@ if (-not (Invoke-Check 'test-structure.ps1')) { $failed = $true }
 Write-Host ''
 Write-Host '=== frontmatter ==='
 if (-not (Invoke-Check 'test-frontmatter.ps1')) { $failed = $true }
+
+Write-Host ''
+Write-Host '=== installers ==='
+if (-not (Invoke-Check 'test-install.ps1')) { $failed = $true }
 
 Write-Host ''
 Write-Host '=== result ==='

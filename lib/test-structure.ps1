@@ -50,6 +50,11 @@
 # reference, GEMINI.md's triggers, command rows and safety rules, and the
 # installers copying references/ on a fresh install and a re-install, each
 # with a break-it.
+# And it pins the installers' source: each takes it only from its own
+# checkout when that manifest is named stride-gemini-exploratory-testing, and
+# otherwise clones and checks the clone's name, never the working directory,
+# with a break-it for each half. The policy pins also cover the kill rules for
+# PID 0 and negative PIDs. Running the installers is left to test-install.ps1.
 #
 # Offline and read-only — it never executes or evaluates any extension file; it
 # checks existence, parses the manifest and the explorer JSON as data with
@@ -1427,6 +1432,27 @@ $SbKillCheck = { param($t) & $SbPolicyCheck $t 'kill' }
 $SbKillFirstRx = 'commandRegex = ''(?:kill|[^"\s;&|]*/kill)\s+(?:0+(?:[\s"\\;&|)]|$)|-[0-9]+\s*(?:["\\;&|)]|$))'''
 $SbKillLaterRx = 'commandRegex = ''(?:kill|[^"\s;&|]*/kill)\s+[^"\s\\;&|][^"\\;&|]*\s(?:-[0-9]+|0+)(?:[\s"\\;&|)]|$)'''
 
+# Each installer takes its source only from its own file's directory, and
+# only when that manifest names this extension; piped (no script file) it
+# clones and checks the clone's name. The working directory is never a source.
+# Read from the two installers' joined text.
+$SbInstallSourceNeedles = @(
+    'SCRIPT_PATH="${BASH_SOURCE[0]:-}"',
+    'if [ -n "$SCRIPT_PATH" ] && [ -f "$SCRIPT_PATH" ]; then',
+    '[ "$(manifest_name "$SCRIPT_DIR/gemini-extension.json")" = "$EXT_NAME" ]; then',
+    '[ "$(manifest_name "$SRC/gemini-extension.json")" != "$EXT_NAME" ]; then',
+    'if ($PSCommandPath) {',
+    "if ((Get-ManifestName (Join-Path `$ScriptDir 'gemini-extension.json')) -ceq `$ExtName) {",
+    "(Get-ManifestName (Join-Path `$Src 'gemini-extension.json')) -cne `$ExtName"
+)
+$SbInstallSourceCheck = {
+    param($t)
+    $out = Get-MissingNeedles $t $SbInstallSourceNeedles
+    if ($t.Contains('dirname "${BASH_SOURCE[0]}"')) { $out += ' [stale: dirname of BASH_SOURCE, which is the working directory when piped]' }
+    if ($t.Contains('$MyInvocation.MyCommand.Path')) { $out += ' [stale: $MyInvocation.MyCommand.Path, which names the caller under iex]' }
+    return $out
+}
+
 $SbInstallerCheck = {
     param($t)
     $out = ''
@@ -1501,6 +1527,15 @@ if (@($sbFiles | Where-Object { -not (Test-Path -LiteralPath $_ -PathType Leaf) 
         'an installer does not copy policies/' $SbInstallerCheck $sbInstallers
     Test-BreakIt 'break-it: dropping policies from install.sh fails the installers pin' $sbInstallers `
         $sbInstallers.Replace(' fixtures policies; do', '') $SbInstallerCheck
+
+    Test-Pin "install.sh and install.ps1 take their source only from their own checkout with this extension's manifest name, never the working directory" `
+        "an installer can take its source from the working directory or another extension's checkout" $SbInstallSourceCheck $sbInstallers
+    Test-BreakIt "break-it: dropping install.sh's manifest-name check fails the installer-source pin" $sbInstallers `
+        $sbInstallers.Replace(' = "$EXT_NAME" ]; then', '') $SbInstallSourceCheck
+    Test-BreakIt 'break-it: install.sh taking dirname of BASH_SOURCE again fails the installer-source pin' $sbInstallers `
+        $sbInstallers.Replace("`nSRC=`"`"`n", "`nSRC=`"`"`n" + 'SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"' + "`n") $SbInstallSourceCheck
+    Test-BreakIt "break-it: dropping install.ps1's `$PSCommandPath test fails the installer-source pin" $sbInstallers `
+        $sbInstallers.Replace('$PSCommandPath', '') $SbInstallSourceCheck
 } else {
     Fail 'safety-boundary checks need agents/explorer.md, commands/explore.toml, skills/heuristics/SKILL.md, policies/explorer.toml, install.sh and install.ps1' ''
 }
