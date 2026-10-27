@@ -13,7 +13,15 @@
 # command (sudo, xargs, timeout, a quoted argument) can slip past a prefix or
 # a regex, and a User, Workspace or Admin policy outranks the Extension tier.
 # None of them touches the explorer's own cleanup, which uses kill <pid>,
-# kill -9 <pid>, rm -f -- <path> and rmdir only.
+# kill -9 <pid> (and may check a PID with kill -0 <pid>), rm -f -- <path> and
+# rmdir only, always with a positive PID. The two kill rules deny only a
+# target of 0 or a negative number: kill 0 signals the caller's own process
+# group, kill -- -<pgid> a whole group, and kill -9 -1 every process the user
+# owns. A negative number in the first argument is a signal (kill -9 <pid>),
+# so it is denied only when it is the sole argument; from the second argument
+# on, any negative number or 0 is a target, so kill -s 0 <pid> is refused too
+# (kill -0 <pid> is the form that passes). They match kill and a path ending in
+# /kill, and stop at ; & | so a later command is judged on its own.
 #
 # Keep every rule as one `key = value` per line with single-line values:
 # lib/test-structure.ps1 reads this file as text. Never put a quantifier after
@@ -51,3 +59,19 @@ commandPrefix = "git push"
 decision = "deny"
 priority = 900
 denyMessage = "The explorer never pushes to a repository."
+
+[[rule]]
+toolName = "run_shell_command"
+subagent = "explorer"
+commandRegex = '(?:kill|[^"\s;&|]*/kill)\s+(?:0+(?:[\s"\\;&|)]|$)|-[0-9]+\s*(?:["\\;&|)]|$))'
+decision = "deny"
+priority = 900
+denyMessage = "The explorer never signals PID 0 or a negative PID, which reach a whole process group or every process you own. Stop only a process you started, by its recorded positive PID: kill <pid>, then kill -9 <pid>."
+
+[[rule]]
+toolName = "run_shell_command"
+subagent = "explorer"
+commandRegex = '(?:kill|[^"\s;&|]*/kill)\s+[^"\s\\;&|][^"\\;&|]*\s(?:-[0-9]+|0+)(?:[\s"\\;&|)]|$)'
+decision = "deny"
+priority = 900
+denyMessage = "The explorer never signals PID 0 or a negative PID, which reach a whole process group or every process you own. Stop only a process you started, by its recorded positive PID: kill <pid>, then kill -9 <pid>."

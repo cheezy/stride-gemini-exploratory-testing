@@ -1014,8 +1014,8 @@ fi
 # before its last working turn under max_turns, the credential-file rule, the
 # eight older prohibitions, the card staying free of all of it, the in-app
 # limits on Interrupt, Starve and the Saboteur Tour, the deny-only
-# policies/explorer.toml (parsed with python3 tomllib, 3.11 or later) and the
-# installers copying policies/. Each pin is one check function, and its
+# policies/explorer.toml (parsed with python3 tomllib, 3.11 or later), its
+# kill rules for PID 0 and negative PIDs, and the installers copying policies/. Each pin is one check function, and its
 # break-it runs that same function on a copy of the text with one rule cut or
 # altered and must see it fail. Messages are identical in test-structure.ps1.
 
@@ -1092,7 +1092,7 @@ SB_CLEANUP_NEEDLES=(
   '`kill <pid>` each listed process, then `kill -9` that same PID only if it is still running'
   '`rm -f -- <path>` each listed file; then `rmdir` the scratch directory'
   '**Never stop or delete anything you did not create**'
-  'no `pkill` or `killall` by name, and no glob or wildcard in a delete'
+  'no `pkill` or `killall` by name, no `kill` aimed at PID `0` or a negative PID, and no glob or wildcard in a delete'
   '`policies/explorer.toml` refuses those commands'
   'restore any app setting or feature flag you changed to its prior value'
   '**Cleanup must finish before your last working turn.**'
@@ -1247,7 +1247,16 @@ keep = ["kill 4242", "kill -9 4242", "rm -f -- /tmp/tmp.Ab3/probe-run.txt", "rmd
         "curl -q -sS -i --max-redirs 0 http://localhost:4000"]
 write = ["set -o noclobber; [ ! -e '/tmp/r/report.json' ] && [ ! -L '/tmp/r/report.json' ] && cat > '/tmp/r/report.json' <<'EXPLORATORY_REPORT_END'",
          "mkdir -p -- '/tmp/r'"]
+kill_deny = ["kill 0", "kill -9 0", "kill -1", "kill -9 -1", "kill -KILL -1", "kill -s KILL -1", "kill -- -1",
+             "kill -- -4242", "kill -TERM -- -4242", "/bin/kill -9 -1"]
+kill_keep = ["kill 4242", "kill -9 4242", "kill -0 4242", "kill 4200", "kill -9 10", "kill -s KILL 4242",
+             "kill -9 4242 2>/dev/null", "kill 4242 && echo 0"]
 hit = lambda c: any(p.search('"command":"' + c + '"') for p in patterns)
+if sys.argv[1:] == ["kill"]:
+    out = [o for o in out if not o.startswith(" [rule ")]
+    deny, keep, write = kill_deny, kill_keep, []
+else:
+    deny, keep = deny + kill_deny, keep + kill_keep
 out += [f" [not denied: {c}]" for c in deny if not hit(c)]
 out += [f" [blocks cleanup: {c}]" for c in keep if hit(c)]
 out += [f" [blocks the report write: {c}]" for c in write if hit(c)]
@@ -1255,6 +1264,12 @@ print("".join(out))
 PY
 )"
 sb_policy_problems() { printf '%s\n' "$1" | python3 -I -c "$SB_POLICY_PY"; }
+# sb_kill_problems — the same loader and matcher, judged on kill alone (the
+# policy pin reports a malformed rule): a target of PID 0 or a negative PID is
+# denied, and a positive PID goes through.
+sb_kill_problems() { printf '%s\n' "$1" | python3 -I -c "$SB_POLICY_PY" kill; }
+SB_KILL_FIRST_RX="commandRegex = '(?:kill|[^\"\\s;&|]*/kill)\\s+(?:0+(?:[\\s\"\\\\;&|)]|\$)|-[0-9]+\\s*(?:[\"\\\\;&|)]|\$))'"
+SB_KILL_LATER_RX="commandRegex = '(?:kill|[^\"\\s;&|]*/kill)\\s+[^\"\\s\\\\;&|][^\"\\\\;&|]*\\s(?:-[0-9]+|0+)(?:[\\s\"\\\\;&|)]|\$)'"
 
 sb_installer_problems() {
   case "$1" in *'for dir in commands skills agents lib fixtures policies; do'*) ;; *) printf ' [install.sh does not copy policies/]' ;; esac
@@ -1313,6 +1328,15 @@ $(LC_ALL=C tr -d '\r' < "$INSTALL_PS1")"
     "policies/explorer.toml is not a deny-only explorer policy that spares cleanup and the report write" sb_policy_problems "$SB_POLICY"
   break_it "break-it: a deny rule turned to allow fails the policy pin" "$SB_POLICY" \
     "$(printf '%s\n' "$SB_POLICY" | LC_ALL=C awk '!d && $0 == "decision = \"deny\"" { print "decision = \"allow\""; d = 1; next } { print }')" sb_policy_problems
+
+  pin_check "policies/explorer.toml denies kill aimed at PID 0 or a negative PID and lets kill <pid>, kill -9 <pid> and kill -0 <pid> through" \
+    "policies/explorer.toml does not deny kill of PID 0 or a negative PID, or blocks kill of a positive PID" sb_kill_problems "$SB_POLICY"
+  break_it "break-it: deleting the sole-argument kill rule fails the kill pin" "$SB_POLICY" \
+    "$(cut_text "$SB_POLICY" "$SB_KILL_FIRST_RX")" sb_kill_problems
+  break_it "break-it: deleting the later-argument kill rule fails the kill pin" "$SB_POLICY" \
+    "$(cut_text "$SB_POLICY" "$SB_KILL_LATER_RX")" sb_kill_problems
+  break_it "break-it: a kill rule widened to every kill fails the kill pin" "$SB_POLICY" \
+    "$(cut_text "$SB_POLICY" '\s+(?:0+(?:[\s"\\;&|)]|$)|-[0-9]+\s*(?:["\\;&|)]|$))')" sb_kill_problems
 
   pin_check "install.sh and install.ps1 copy policies/" \
     "an installer does not copy policies/" sb_installer_problems "$SB_INSTALLERS"

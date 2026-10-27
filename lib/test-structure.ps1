@@ -1162,8 +1162,8 @@ if ((Test-Path -LiteralPath $Explorer -PathType Leaf) -and (Test-Path -LiteralPa
 # before its last working turn under max_turns, the credential-file rule, the
 # eight older prohibitions, the card staying free of all of it, the in-app
 # limits on Interrupt, Starve and the Saboteur Tour, the deny-only
-# policies/explorer.toml (read here as text, one key = value per line) and the
-# installers copying policies/. Each pin is one check scriptblock, and its
+# policies/explorer.toml (read here as text, one key = value per line), its
+# kill rules for PID 0 and negative PIDs, and the installers copying policies/. Each pin is one check scriptblock, and its
 # break-it runs that same check on a copy of the text with one rule cut or
 # altered and must see it fail. Messages are identical to test-structure.sh.
 
@@ -1230,7 +1230,7 @@ $SbCleanupNeedles = @(
     '`kill <pid>` each listed process, then `kill -9` that same PID only if it is still running',
     '`rm -f -- <path>` each listed file; then `rmdir` the scratch directory',
     '**Never stop or delete anything you did not create**',
-    'no `pkill` or `killall` by name, and no glob or wildcard in a delete',
+    'no `pkill` or `killall` by name, no `kill` aimed at PID `0` or a negative PID, and no glob or wildcard in a delete',
     '`policies/explorer.toml` refuses those commands',
     'restore any app setting or feature flag you changed to its prior value',
     '**Cleanup must finish before your last working turn.**',
@@ -1358,7 +1358,7 @@ function ConvertFrom-PolicyValue([string]$raw) {
 # regex matched after "command":" - then it proves the rules deny what the
 # explorer must never run and let its own cleanup through.
 $SbPolicyCheck = {
-    param($t)
+    param($t, $mode)
     $rules = New-Object 'System.Collections.Generic.List[hashtable]'
     $current = $null
     foreach ($line in ($t -split "`n")) {
@@ -1401,14 +1401,31 @@ $SbPolicyCheck = {
         'pkill -f server', 'killall node', 'git push --force origin main')
     $keep = @('kill 4242', 'kill -9 4242', 'rm -f -- /tmp/tmp.Ab3/probe-run.txt', 'rmdir /tmp/tmp.Ab3',
         'curl -q -sS -i --max-redirs 0 http://localhost:4000')
+    $killDeny = @('kill 0', 'kill -9 0', 'kill -1', 'kill -9 -1', 'kill -KILL -1', 'kill -s KILL -1', 'kill -- -1',
+        'kill -- -4242', 'kill -TERM -- -4242', '/bin/kill -9 -1')
+    $killKeep = @('kill 4242', 'kill -9 4242', 'kill -0 4242', 'kill 4200', 'kill -9 10', 'kill -s KILL 4242',
+        'kill -9 4242 2>/dev/null', 'kill 4242 && echo 0')
+    $write = @('set -o noclobber; [ ! -e ''/tmp/r/report.json'' ] && [ ! -L ''/tmp/r/report.json'' ] && cat > ''/tmp/r/report.json'' <<''EXPLORATORY_REPORT_END''',
+        'mkdir -p -- ''/tmp/r''')
+    if ($mode -ceq 'kill') {
+        $out = ([regex]::Matches($out, ' \[[^\]]*\]') | Where-Object { -not $_.Value.StartsWith(' [rule ') } | ForEach-Object { $_.Value }) -join ''
+        $deny = $killDeny; $keep = $killKeep; $write = @()
+    } else {
+        $deny = $deny + $killDeny; $keep = $keep + $killKeep
+    }
     $hit = { param($c) foreach ($p in $patterns) { if ($p.IsMatch('"command":"' + $c + '"')) { return $true } }; return $false }
     foreach ($c in $deny) { if (-not (& $hit $c)) { $out += " [not denied: $c]" } }
     foreach ($c in $keep) { if (& $hit $c) { $out += " [blocks cleanup: $c]" } }
-    $write = @('set -o noclobber; [ ! -e ''/tmp/r/report.json'' ] && [ ! -L ''/tmp/r/report.json'' ] && cat > ''/tmp/r/report.json'' <<''EXPLORATORY_REPORT_END''',
-        'mkdir -p -- ''/tmp/r''')
     foreach ($c in $write) { if (& $hit $c) { $out += " [blocks the report write: $c]" } }
     return $out
 }
+
+# The same loader and matcher, judged on kill alone (the policy pin reports a
+# malformed rule): a target of PID 0 or a negative PID is denied, and a
+# positive PID goes through.
+$SbKillCheck = { param($t) & $SbPolicyCheck $t 'kill' }
+$SbKillFirstRx = 'commandRegex = ''(?:kill|[^"\s;&|]*/kill)\s+(?:0+(?:[\s"\\;&|)]|$)|-[0-9]+\s*(?:["\\;&|)]|$))'''
+$SbKillLaterRx = 'commandRegex = ''(?:kill|[^"\s;&|]*/kill)\s+[^"\s\\;&|][^"\\;&|]*\s(?:-[0-9]+|0+)(?:[\s"\\;&|)]|$)'''
 
 $SbInstallerCheck = {
     param($t)
@@ -1470,6 +1487,15 @@ if (@($sbFiles | Where-Object { -not (Test-Path -LiteralPath $_ -PathType Leaf) 
         'policies/explorer.toml is not a deny-only explorer policy that spares cleanup and the report write' $SbPolicyCheck $sbPolicy
     Test-BreakIt 'break-it: a deny rule turned to allow fails the policy pin' $sbPolicy `
         ([regex]::new('(?m)^decision = "deny"$').Replace($sbPolicy, 'decision = "allow"', 1)) $SbPolicyCheck
+
+    Test-Pin 'policies/explorer.toml denies kill aimed at PID 0 or a negative PID and lets kill <pid>, kill -9 <pid> and kill -0 <pid> through' `
+        'policies/explorer.toml does not deny kill of PID 0 or a negative PID, or blocks kill of a positive PID' $SbKillCheck $sbPolicy
+    Test-BreakIt 'break-it: deleting the sole-argument kill rule fails the kill pin' $sbPolicy `
+        $sbPolicy.Replace($SbKillFirstRx, '') $SbKillCheck
+    Test-BreakIt 'break-it: deleting the later-argument kill rule fails the kill pin' $sbPolicy `
+        $sbPolicy.Replace($SbKillLaterRx, '') $SbKillCheck
+    Test-BreakIt 'break-it: a kill rule widened to every kill fails the kill pin' $sbPolicy `
+        $sbPolicy.Replace('\s+(?:0+(?:[\s"\\;&|)]|$)|-[0-9]+\s*(?:["\\;&|)]|$))', '') $SbKillCheck
 
     Test-Pin 'install.sh and install.ps1 copy policies/' `
         'an installer does not copy policies/' $SbInstallerCheck $sbInstallers
