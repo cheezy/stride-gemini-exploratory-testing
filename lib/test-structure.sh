@@ -58,6 +58,13 @@
 # list against the explorer's table, the contract_version readings, status
 # from stop_reason, confirmed bugs only when replicated and not provisional,
 # and known_bad kept out of the bug list, each with a break-it.
+# And it pins the heuristics catalog's twelve change-risk lenses: one row each
+# under its General or Web change-risk sub-heading with an E.g. example and a
+# When-a-change trigger, the web-only three never under General, no Tour
+# collision, the in-app and authorized-only framing, curl -q -sS -i
+# --max-redirs 0 through run_shell_command and no other edition's tool, no
+# task-identifier or project-name leak, and every lens named in HEURISTICS.md,
+# each with a break-it.
 #
 # Offline and read-only — it never executes or evaluates any extension file; it
 # checks existence, parses the manifest and the explorer JSON as data with
@@ -2285,6 +2292,249 @@ $(LC_ALL=C tr -d '\r' < "$INSTALL_PS1")"
     "$(cut_text "$SR_INSTALLERS" 'cp -a "$SRC/$dir/."')" sr_installer_problems
 else
   nope "skill-reference checks need both skills, both references, GEMINI.md, install.sh and install.ps1" ""
+fi
+
+# --- Change-risk lenses ------------------------------------------------------
+#
+# Port of upstream W2578. Twelve lenses picked by the kind of change under
+# test, each exactly one row of a three-column table under its General or Web
+# change-risk sub-heading, with an "E.g. " example in What to try and a
+# "When a change ..." trigger. The web-only three never sit under General
+# Heuristics, no lens name collides with a Tour, Pull the Rug and After the
+# Headers stay in-app, Other Verbs and Response Hardening are authorized-only,
+# the tool named is curl -q -sS -i --max-redirs 0 through run_shell_command
+# and no other edition's tool, neither file leaks a task identifier or project
+# name, and HEURISTICS.md names every lens. Each pin is one check function and
+# each break-it runs that same function on altered text and must see it fail.
+# Messages are identical in test-structure.ps1.
+
+printf '\nChange-risk lenses\n'
+HEUR_PAGE="${PLUGIN_ROOT}/HEURISTICS.md"
+CR_G='### General change-risk lenses'
+CR_W='### Web change-risk lenses'
+CR_GENERAL=('Change the Rights' 'Shadow Decision' 'Who Else Is Watching' 'Pull the Rug'
+  'Every Surface' 'Every Locale' 'Developer Guidebook' 'Leave No Trace' 'Telemetry Semantics')
+CR_WEB=('Other Verbs' 'After the Headers' 'Response Hardening')
+CR_FRAMING=('After the Headers|real server' 'After the Headers|in-process test adapter'
+  'After the Headers|in-app' 'Pull the Rug|in-app' 'Pull the Rug|test data you created'
+  'Other Verbs|authorized testing of your own system only'
+  'Response Hardening|authorized testing of your own system only'
+  'After the Headers|`curl -q -sS -i --max-redirs 0` through `run_shell_command`'
+  'Leave No Trace|through `run_shell_command`')
+CR_NEEDLES=(
+  '**Pull the Rug and After the Headers share the Interrupt limits.**'
+  'Never kill the server or a process you did not start'
+  '**Other Verbs and Response Hardening are for authorized testing of your own system only**'
+  'start with its **change-risk lenses**'
+  'extends the **Guidebook Tour**'
+  'Send these requests with `curl -q -sS -i --max-redirs 0` through `run_shell_command`'
+  'never follow a redirect with `-L`'
+)
+
+# The lens a per-lens check reads: CR_NAME, and the two exact headings its row
+# must sit between, CR_START and CR_STOP.
+CR_NAME=''; CR_START=''; CR_STOP=''
+
+# cr_rows <text> <start> <stop> <name> — rows whose first cell is exactly the
+# bold name, between two exact headings.
+cr_rows() {
+  printf '%s\n' "$1" | START="$2" STOP="$3" CELL=" **$4** " LC_ALL=C awk -F'|' '
+    $0 == ENVIRON["START"] { f = 1; next }
+    f && $0 == ENVIRON["STOP"] { f = 0 }
+    f && $2 == ENVIRON["CELL"] { print }'
+}
+
+# cr_row_lines <text> <name> — every line carrying the lens as a row's first cell.
+cr_row_lines() { printf '%s\n' "$1" | LC_ALL=C grep -F -e "| **$2** |"; }
+
+# cr_count <lines> — how many non-empty lines.
+cr_count() { if [ -z "$1" ]; then echo 0; else printf '%s\n' "$1" | wc -l | tr -d ' '; fi; }
+
+cr_once_problems() {
+  local total count
+  total=$(cr_count "$(cr_row_lines "$1" "$CR_NAME")")
+  count=$(cr_count "$(cr_rows "$1" "$CR_START" "$CR_STOP" "$CR_NAME")")
+  if [ "$total" != "1" ] || [ "$count" != "1" ]; then
+    printf ' [%s: rows in file %s, under sub-heading %s]' "$CR_NAME" "$total" "$count"
+  fi
+}
+
+# A row has three cells, an "E.g. " example in What to try, and a trigger of
+# more than 20 characters that starts "When a change ".
+cr_shape_problems() {
+  local rows
+  rows="$(cr_rows "$1" "$CR_START" "$CR_STOP" "$CR_NAME")"
+  if [ "$(cr_count "$rows")" != "1" ] || ! printf '%s\n' "$rows" | LC_ALL=C awk -F'|' '
+      NF == 5 {
+        t = $3; w = $4
+        gsub(/^ +| +$/, "", t); gsub(/^ +| +$/, "", w)
+        if (index(t, "E.g. ") > 0 && w ~ /^When a change [^ ]/ && length(w) > 20) good = 1
+      }
+      END { exit good ? 0 : 1 }'; then
+    printf ' [%s]' "$CR_NAME"
+  fi
+}
+
+cr_tour_problems() {
+  case "$1" in
+    *"- **${CR_NAME} Tour** —"*|*"- **${CR_NAME}** —"*) printf ' [%s]' "$CR_NAME" ;;
+  esac
+}
+
+cr_page_problems() {
+  case "$1" in *"$CR_NAME"*) ;; *) printf ' [%s]' "$CR_NAME" ;; esac
+}
+
+cr_order_problems() {
+  printf '%s\n' "$1" | CRG="$CR_G" CRW="$CR_W" LC_ALL=C awk '
+    $0 == "## General Heuristics" && !g { g = NR }
+    $0 == ENVIRON["CRG"] && !cg { cg = NR }
+    $0 == "## Web Heuristics" && !w { w = NR }
+    $0 == ENVIRON["CRW"] && !cw { cw = NR }
+    $0 == "## Variable Catalog" && !v { v = NR }
+    END {
+      if (!(g && cg && w && cw && v && g < cg && cg < w && w < cw && cw < v))
+        printf " [general=%s web=%s]", (cg ? cg : "none"), (cw ? cw : "none")
+    }'
+}
+
+cr_header_problems() {
+  local n
+  n=$(cr_count "$(printf '%s\n' "$1" | LC_ALL=C grep -xF -e '| Heuristic | What to try | When it applies |')")
+  [ "$n" = "2" ] || printf ' [found %s]' "$n"
+}
+
+cr_webonly_problems() {
+  local general name
+  general="$(printf '%s\n' "$1" | LC_ALL=C awk '$0 == "## General Heuristics" { f = 1; next } f && $0 == "## Web Heuristics" { f = 0 } f')"
+  for name in "${CR_WEB[@]}"; do
+    case "$general" in *"| **${name}** |"*) printf ' [%s]' "$name" ;; esac
+  done
+}
+
+cr_framing_problems() {
+  local pair name needle
+  for pair in "${CR_FRAMING[@]}"; do
+    name="${pair%%|*}"; needle="${pair#*|}"
+    cr_row_lines "$1" "$name" | LC_ALL=C grep -qF -e "$needle" || printf ' [%s: %s]' "$name" "$needle"
+  done
+}
+
+cr_interrupt_problems() {
+  local name
+  for name in 'Pull the Rug' 'After the Headers'; do
+    if cr_row_lines "$1" "$name" | LC_ALL=C grep -qiE 'kill|network'; then printf ' [%s]' "$name"; fi
+  done
+}
+
+cr_needle_problems() { missing_needles "$1" "${CR_NEEDLES[@]}"; }
+
+# This edition's shell tool is run_shell_command; no other edition's tool name
+# may be carried over, and no request in the catalog follows a redirect.
+cr_tool_problems() {
+  local n
+  n=$(cr_count "$(printf '%s\n' "$1" | LC_ALL=C grep -E -e 'through `(bash|shell|execute|run)`|curl [^`]*(-[A-Za-z]*L|--location)')")
+  [ "$n" = "0" ] || printf ' [%s line(s)]' "$n"
+}
+
+cr_leak_problems() {
+  local leaks project
+  leaks=$(cr_count "$(printf '%s\n' "$1" | LC_ALL=C grep -E -e '(^|[^A-Za-z0-9])[GWD][0-9]{3,}([^0-9]|$)')")
+  project=$(cr_count "$(printf '%s\n' "$1" | LC_ALL=C grep -i -e 'kanban')")
+  if [ "$leaks" != "0" ] || [ "$project" != "0" ]; then
+    printf ' [identifier lines: %s, project lines: %s]' "$leaks" "$project"
+  fi
+}
+
+# cr_edit_row <text> <name> <cut> [<insert>] — print <text> with <cut> replaced
+# by <insert> (default nothing) in the lens's own row only.
+cr_edit_row() {
+  printf '%s\n' "$1" | ROW="| **$2** |" CUT="$3" INS="${4:-}" LC_ALL=C awk '
+    { if (index($0, ENVIRON["ROW"]) > 0) {
+        s = $0; o = ""; c = ENVIRON["CUT"]
+        while ((i = index(s, c)) > 0) { o = o substr(s, 1, i - 1) ENVIRON["INS"]; s = substr(s, i + length(c)) }
+        print o s
+      } else print }'
+}
+
+# cr_dup_row <text> <name> — print <text> with the lens's row written twice.
+cr_dup_row() {
+  printf '%s\n' "$1" | ROW="| **$2** |" LC_ALL=C awk '{ print } index($0, ENVIRON["ROW"]) > 0 { print }'
+}
+
+# cr_lens <name> <start> <stop> <label> — the four per-lens pins and their
+# break-its: the name cut from its row, the row written twice, the trigger and
+# the example cut, and the name cut from HEURISTICS.md.
+cr_lens() {
+  CR_NAME="$1"; CR_START="$2"; CR_STOP="$3"
+  pin_check "heuristics lists change-risk lens once, under its $4 sub-heading: $1" \
+    "change-risk lens is missing, duplicated or outside its $4 sub-heading" cr_once_problems "$CR_TEXT"
+  break_it "break-it: a lens name removed from the catalog fails the once pin: $1" "$CR_TEXT" \
+    "$(cr_edit_row "$CR_TEXT" "$1" "**$1**")" cr_once_problems
+  break_it "break-it: a lens row written twice fails the once pin: $1" "$CR_TEXT" \
+    "$(cr_dup_row "$CR_TEXT" "$1")" cr_once_problems
+  pin_check "change-risk lens has an E.g. example and a When-a-change trigger: $1" \
+    "change-risk lens lacks a three-cell row with an E.g. example and a When-a-change trigger" cr_shape_problems "$CR_TEXT"
+  break_it "break-it: a lens without its When-a-change trigger fails the row pin: $1" "$CR_TEXT" \
+    "$(cr_edit_row "$CR_TEXT" "$1" 'When a change ')" cr_shape_problems
+  break_it "break-it: a lens without its E.g. example fails the row pin: $1" "$CR_TEXT" \
+    "$(cr_edit_row "$CR_TEXT" "$1" 'E.g. ')" cr_shape_problems
+  pin_check "change-risk lens does not collide with a Tour: $1" \
+    "change-risk lens name collides with a Tour" cr_tour_problems "$CR_TEXT"
+  pin_check "HEURISTICS.md names change-risk lens: $1" \
+    "HEURISTICS.md does not name change-risk lens" cr_page_problems "$CR_PAGE"
+  break_it "break-it: HEURISTICS.md without the lens fails its pin: $1" "$CR_PAGE" \
+    "$(cut_text "$CR_PAGE" "$1")" cr_page_problems
+}
+
+if [ -f "$HEUR" ] && [ -f "$HEUR_PAGE" ]; then
+  CR_TEXT="$(tr -d '\r' < "$HEUR")"
+  CR_PAGE="$(tr -d '\r' < "$HEUR_PAGE")"
+
+  pin_check "change-risk sub-headings sit inside General Heuristics and Web Heuristics, in order" \
+    "change-risk sub-headings are missing or out of order" cr_order_problems "$CR_TEXT"
+  break_it "break-it: a missing Web change-risk sub-heading fails the order pin" "$CR_TEXT" \
+    "$(cut_text "$CR_TEXT" "$CR_W")" cr_order_problems
+  pin_check "both change-risk tables carry a When it applies column" \
+    "expected two '| Heuristic | What to try | When it applies |' table headers" cr_header_problems "$CR_TEXT"
+  break_it "break-it: a table without its When it applies column fails the header pin" "$CR_TEXT" \
+    "$(cut_text "$CR_TEXT" ' When it applies |')" cr_header_problems
+
+  for name in "${CR_GENERAL[@]}"; do cr_lens "$name" "$CR_G" '## Web Heuristics' General; done
+  for name in "${CR_WEB[@]}"; do cr_lens "$name" "$CR_W" '## Variable Catalog' Web; done
+
+  pin_check "the web-only change-risk lenses stay out of General Heuristics" \
+    "web-only lens listed under General Heuristics" cr_webonly_problems "$CR_TEXT"
+  break_it "break-it: a web-only lens under General Heuristics fails its pin" "$CR_TEXT" \
+    "$(printf '%s\n' "$CR_TEXT" | CRG="$CR_G" LC_ALL=C awk '{ print } $0 == ENVIRON["CRG"] { print "| **Other Verbs** | E.g. x. | When a change adds a route. |" }')" cr_webonly_problems
+  pin_check "change-risk lenses carry their in-app, real-server, authorized-only and shell-tool framing" \
+    "change-risk lens is missing required framing" cr_framing_problems "$CR_TEXT"
+  break_it "break-it: After the Headers without real server fails the framing pin" "$CR_TEXT" \
+    "$(cr_edit_row "$CR_TEXT" 'After the Headers' 'real server')" cr_framing_problems
+  break_it "break-it: Other Verbs without its authorized-only framing fails the framing pin" "$CR_TEXT" \
+    "$(cr_edit_row "$CR_TEXT" 'Other Verbs' 'authorized testing of your own system only')" cr_framing_problems
+  pin_check "Interrupt-style change-risk lenses offer no kill or network means" \
+    "Interrupt-style change-risk lens mentions killing or the network" cr_interrupt_problems "$CR_TEXT"
+  break_it "break-it: Pull the Rug offering to kill the server fails its pin" "$CR_TEXT" \
+    "$(cr_edit_row "$CR_TEXT" 'Pull the Rug' 'By in-app means only' 'By any means, even a server kill')" cr_interrupt_problems
+  pin_check "heuristics documents the change-risk framing, limits and this edition's tool" \
+    "heuristics is missing change-risk wording" cr_needle_problems "$CR_TEXT"
+  break_it "break-it: the shared Interrupt limits cut fails the wording pin" "$CR_TEXT" \
+    "$(cut_text "$CR_TEXT" '**Pull the Rug and After the Headers share the Interrupt limits.**')" cr_needle_problems
+  pin_check "heuristics names only this edition's shell tool and never follows a redirect" \
+    "heuristics names another edition's shell tool or a redirect-following curl" cr_tool_problems "$CR_TEXT"
+  break_it "break-it: another edition's shell tool fails the tool pin" "$CR_TEXT" \
+    "$(cr_edit_row "$CR_TEXT" 'Leave No Trace' 'through `run_shell_command`' 'through `bash`')" cr_tool_problems
+  break_it "break-it: a redirect-following curl fails the tool pin" "$CR_TEXT" \
+    "$(cr_edit_row "$CR_TEXT" 'After the Headers' 'curl -q -sS -i' 'curl -q -sS -iL')" cr_tool_problems
+  pin_check "skills/heuristics/SKILL.md names no task identifier or project name" \
+    "skills/heuristics/SKILL.md leaks a task identifier or project name" cr_leak_problems "$CR_TEXT"
+  pin_check "HEURISTICS.md names no task identifier or project name" \
+    "HEURISTICS.md leaks a task identifier or project name" cr_leak_problems "$CR_PAGE"
+  break_it "break-it: a task identifier in a lens row fails the leak pin" "$CR_TEXT" \
+    "$(cr_edit_row "$CR_TEXT" 'Every Surface' 'E.g. ' 'E.g. as in W2578, ')" cr_leak_problems
+else
+  nope "change-risk lens checks need skills/heuristics/SKILL.md and HEURISTICS.md" ""
 fi
 
 # --- Root docs & license ----------------------------------------------------

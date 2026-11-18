@@ -59,6 +59,13 @@
 # list against the explorer's table, the contract_version readings, status
 # from stop_reason, confirmed bugs only when replicated and not provisional,
 # and known_bad kept out of the bug list, each with a break-it.
+# And it pins the heuristics catalog's twelve change-risk lenses: one row each
+# under its General or Web change-risk sub-heading with an E.g. example and a
+# When-a-change trigger, the web-only three never under General, no Tour
+# collision, the in-app and authorized-only framing, curl -q -sS -i
+# --max-redirs 0 through run_shell_command and no other edition's tool, no
+# task-identifier or project-name leak, and every lens named in HEURISTICS.md,
+# each with a break-it.
 #
 # Offline and read-only — it never executes or evaluates any extension file; it
 # checks existence, parses the manifest and the explorer JSON as data with
@@ -2488,6 +2495,278 @@ if (@($srAll | Where-Object { -not (Test-Path -LiteralPath $_ -PathType Leaf) })
         $srInstallers.Replace('cp -a "$SRC/$dir/."', '') $SrInstallerCheck
 } else {
     Fail 'skill-reference checks need both skills, both references, GEMINI.md, install.sh and install.ps1' ''
+}
+
+# --- Change-risk lenses ------------------------------------------------------
+#
+# Mirror of the bash section, a port of upstream W2578. Twelve lenses picked by
+# the kind of change under test, each exactly one row of a three-column table
+# under its General or Web change-risk sub-heading, with an "E.g. " example in
+# What to try and a "When a change ..." trigger. The web-only three never sit
+# under General Heuristics, no lens name collides with a Tour, Pull the Rug and
+# After the Headers stay in-app, Other Verbs and Response Hardening are
+# authorized-only, the tool named is curl -q -sS -i --max-redirs 0 through
+# run_shell_command and no other edition's tool, neither file leaks a task
+# identifier or project name, and HEURISTICS.md names every lens. Each pin is
+# one check scriptblock and each break-it runs that same check on altered text
+# and must see it fail. Comparisons are ordinal and case-sensitive like grep -F,
+# except the two case-insensitive greps. Messages are identical to
+# test-structure.sh.
+
+Write-Host ''
+Write-Host 'Change-risk lenses'
+$HeurPage = Join-Path $PluginRoot 'HEURISTICS.md'
+$CrG = '### General change-risk lenses'
+$CrW = '### Web change-risk lenses'
+$CrGeneral = @('Change the Rights', 'Shadow Decision', 'Who Else Is Watching', 'Pull the Rug',
+    'Every Surface', 'Every Locale', 'Developer Guidebook', 'Leave No Trace', 'Telemetry Semantics')
+$CrWeb = @('Other Verbs', 'After the Headers', 'Response Hardening')
+$CrFraming = @('After the Headers|real server', 'After the Headers|in-process test adapter',
+    'After the Headers|in-app', 'Pull the Rug|in-app', 'Pull the Rug|test data you created',
+    'Other Verbs|authorized testing of your own system only',
+    'Response Hardening|authorized testing of your own system only',
+    'After the Headers|`curl -q -sS -i --max-redirs 0` through `run_shell_command`',
+    'Leave No Trace|through `run_shell_command`')
+$CrNeedles = @(
+    '**Pull the Rug and After the Headers share the Interrupt limits.**',
+    'Never kill the server or a process you did not start',
+    '**Other Verbs and Response Hardening are for authorized testing of your own system only**',
+    'start with its **change-risk lenses**',
+    'extends the **Guidebook Tour**',
+    'Send these requests with `curl -q -sS -i --max-redirs 0` through `run_shell_command`',
+    'never follow a redirect with `-L`'
+)
+
+# The lens a per-lens check reads, and the two exact headings its row must sit
+# between.
+$script:CrName = ''; $script:CrStart = ''; $script:CrStop = ''
+
+# Rows whose first cell is exactly the bold name, between two exact headings.
+function Get-CrRows([string]$t, [string]$start, [string]$stop, [string]$name) {
+    $cell = " **$name** "
+    $inside = $false
+    $rows = @()
+    foreach ($l in ($t -split "`n")) {
+        if ($l -ceq $start) { $inside = $true; continue }
+        if ($inside -and $l -ceq $stop) { $inside = $false }
+        if ($inside) {
+            $f = $l.Split('|')
+            if ($f.Count -ge 2 -and $f[1] -ceq $cell) { $rows += $l }
+        }
+    }
+    return ,$rows
+}
+
+function Get-CrRowLines([string]$t, [string]$name) {
+    return ,@(($t -split "`n") | Where-Object { $_.Contains("| **$name** |") })
+}
+
+$CrOnceCheck = {
+    param([string]$t)
+    $total = (Get-CrRowLines $t $script:CrName).Count
+    $count = (Get-CrRows $t $script:CrStart $script:CrStop $script:CrName).Count
+    if ($total -ne 1 -or $count -ne 1) { return " [$($script:CrName): rows in file $total, under sub-heading $count]" }
+    return ''
+}
+
+# A row has three cells, an "E.g. " example in What to try, and a trigger of
+# more than 20 characters that starts "When a change ".
+$CrShapeCheck = {
+    param([string]$t)
+    $rows = Get-CrRows $t $script:CrStart $script:CrStop $script:CrName
+    $good = $false
+    if ($rows.Count -eq 1) {
+        $f = $rows[0].Split('|')
+        if ($f.Count -eq 5) {
+            $what = $f[2].Trim(' '); $when = $f[3].Trim(' ')
+            $good = ($what.Contains('E.g. ') -and ($when -cmatch '^When a change [^ ]') -and $when.Length -gt 20)
+        }
+    }
+    if ($good) { return '' }
+    return " [$($script:CrName)]"
+}
+
+$CrTourCheck = {
+    param([string]$t)
+    if ($t.Contains("- **$($script:CrName) Tour** —") -or $t.Contains("- **$($script:CrName)** —")) { return " [$($script:CrName)]" }
+    return ''
+}
+
+$CrPageCheck = {
+    param([string]$t)
+    if ($t.Contains($script:CrName)) { return '' }
+    return " [$($script:CrName)]"
+}
+
+$CrOrderCheck = {
+    param([string]$t)
+    $want = @('## General Heuristics', $CrG, '## Web Heuristics', $CrW, '## Variable Catalog')
+    $at = @{}
+    $lines = $t -split "`n"
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        foreach ($h in $want) { if ($lines[$i] -ceq $h -and -not $at.ContainsKey($h)) { $at[$h] = $i + 1 } }
+    }
+    $ok = $true
+    foreach ($h in $want) { if (-not $at.ContainsKey($h)) { $ok = $false } }
+    if ($ok) {
+        for ($i = 1; $i -lt $want.Count; $i++) { if ($at[$want[$i - 1]] -ge $at[$want[$i]]) { $ok = $false } }
+    }
+    if ($ok) { return '' }
+    $g = if ($at.ContainsKey($CrG)) { $at[$CrG] } else { 'none' }
+    $w = if ($at.ContainsKey($CrW)) { $at[$CrW] } else { 'none' }
+    return " [general=$g web=$w]"
+}
+
+$CrHeaderCheck = {
+    param([string]$t)
+    $n = @(($t -split "`n") | Where-Object { $_ -ceq '| Heuristic | What to try | When it applies |' }).Count
+    if ($n -eq 2) { return '' }
+    return " [found $n]"
+}
+
+$CrWebOnlyCheck = {
+    param([string]$t)
+    $inGeneral = $false
+    $general = @()
+    foreach ($l in ($t -split "`n")) {
+        if ($l -ceq '## General Heuristics') { $inGeneral = $true; continue }
+        if ($inGeneral -and $l -ceq '## Web Heuristics') { $inGeneral = $false }
+        if ($inGeneral) { $general += $l }
+    }
+    $out = ''
+    foreach ($name in $CrWeb) {
+        if (@($general | Where-Object { $_.Contains("| **$name** |") }).Count -gt 0) { $out += " [$name]" }
+    }
+    return $out
+}
+
+$CrFramingCheck = {
+    param([string]$t)
+    $out = ''
+    foreach ($pair in $CrFraming) {
+        $cut = $pair.IndexOf('|')
+        $name = $pair.Substring(0, $cut); $needle = $pair.Substring($cut + 1)
+        if (@((Get-CrRowLines $t $name) | Where-Object { $_.Contains($needle) }).Count -eq 0) { $out += " [${name}: $needle]" }
+    }
+    return $out
+}
+
+$CrInterruptCheck = {
+    param([string]$t)
+    $out = ''
+    foreach ($name in @('Pull the Rug', 'After the Headers')) {
+        if (@((Get-CrRowLines $t $name) | Where-Object { $_ -match 'kill|network' }).Count -gt 0) { $out += " [$name]" }
+    }
+    return $out
+}
+
+$CrNeedleCheck = { param([string]$t) return (Get-MissingNeedles $t $CrNeedles) }
+
+# This edition's shell tool is run_shell_command; no other edition's tool name
+# may be carried over, and no request in the catalog follows a redirect.
+$CrToolCheck = {
+    param([string]$t)
+    $n = @(($t -split "`n") | Where-Object { $_ -cmatch 'through `(bash|shell|execute|run)`|curl [^`]*(-[A-Za-z]*L|--location)' }).Count
+    if ($n -eq 0) { return '' }
+    return " [$n line(s)]"
+}
+
+$CrLeakCheck = {
+    param([string]$t)
+    $lines = $t -split "`n"
+    $leaks = @($lines | Where-Object { $_ -cmatch '(^|[^A-Za-z0-9])[GWD][0-9]{3,}([^0-9]|$)' }).Count
+    $project = @($lines | Where-Object { $_ -match 'kanban' }).Count
+    if ($leaks -eq 0 -and $project -eq 0) { return '' }
+    return " [identifier lines: $leaks, project lines: $project]"
+}
+
+# Edit-CrRow: the text with $cut replaced by $insert in the lens's own row only.
+function Edit-CrRow([string]$t, [string]$name, [string]$cut, [string]$insert = '') {
+    $row = "| **$name** |"
+    $out = foreach ($l in ($t -split "`n")) { if ($l.Contains($row)) { $l.Replace($cut, $insert) } else { $l } }
+    return ($out -join "`n")
+}
+
+# Copy-CrRow: the text with the lens's row written twice.
+function Copy-CrRow([string]$t, [string]$name) {
+    $row = "| **$name** |"
+    $out = foreach ($l in ($t -split "`n")) { $l; if ($l.Contains($row)) { $l } }
+    return ($out -join "`n")
+}
+
+# Test-CrLens: the four per-lens pins and their break-its: the name cut from
+# its row, the row written twice, the trigger and the example cut, and the
+# name cut from HEURISTICS.md.
+function Test-CrLens([string]$text, [string]$page, [string]$name, [string]$start, [string]$stop, [string]$label) {
+    $script:CrName = $name; $script:CrStart = $start; $script:CrStop = $stop
+    Test-Pin "heuristics lists change-risk lens once, under its $label sub-heading: $name" `
+        "change-risk lens is missing, duplicated or outside its $label sub-heading" $CrOnceCheck $text
+    Test-BreakIt "break-it: a lens name removed from the catalog fails the once pin: $name" $text `
+        (Edit-CrRow $text $name "**$name**") $CrOnceCheck
+    Test-BreakIt "break-it: a lens row written twice fails the once pin: $name" $text `
+        (Copy-CrRow $text $name) $CrOnceCheck
+    Test-Pin "change-risk lens has an E.g. example and a When-a-change trigger: $name" `
+        'change-risk lens lacks a three-cell row with an E.g. example and a When-a-change trigger' $CrShapeCheck $text
+    Test-BreakIt "break-it: a lens without its When-a-change trigger fails the row pin: $name" $text `
+        (Edit-CrRow $text $name 'When a change ') $CrShapeCheck
+    Test-BreakIt "break-it: a lens without its E.g. example fails the row pin: $name" $text `
+        (Edit-CrRow $text $name 'E.g. ') $CrShapeCheck
+    Test-Pin "change-risk lens does not collide with a Tour: $name" `
+        'change-risk lens name collides with a Tour' $CrTourCheck $text
+    Test-Pin "HEURISTICS.md names change-risk lens: $name" `
+        'HEURISTICS.md does not name change-risk lens' $CrPageCheck $page
+    Test-BreakIt "break-it: HEURISTICS.md without the lens fails its pin: $name" $page `
+        $page.Replace($name, '') $CrPageCheck
+}
+
+if ((Test-Path -LiteralPath $Heur -PathType Leaf) -and (Test-Path -LiteralPath $HeurPage -PathType Leaf)) {
+    $crText = Read-Text $Heur
+    $crPage = Read-Text $HeurPage
+
+    Test-Pin 'change-risk sub-headings sit inside General Heuristics and Web Heuristics, in order' `
+        'change-risk sub-headings are missing or out of order' $CrOrderCheck $crText
+    Test-BreakIt 'break-it: a missing Web change-risk sub-heading fails the order pin' $crText `
+        $crText.Replace($CrW, '') $CrOrderCheck
+    Test-Pin 'both change-risk tables carry a When it applies column' `
+        "expected two '| Heuristic | What to try | When it applies |' table headers" $CrHeaderCheck $crText
+    Test-BreakIt 'break-it: a table without its When it applies column fails the header pin' $crText `
+        $crText.Replace(' When it applies |', '') $CrHeaderCheck
+
+    foreach ($name in $CrGeneral) { Test-CrLens $crText $crPage $name $CrG '## Web Heuristics' 'General' }
+    foreach ($name in $CrWeb) { Test-CrLens $crText $crPage $name $CrW '## Variable Catalog' 'Web' }
+
+    Test-Pin 'the web-only change-risk lenses stay out of General Heuristics' `
+        'web-only lens listed under General Heuristics' $CrWebOnlyCheck $crText
+    Test-BreakIt 'break-it: a web-only lens under General Heuristics fails its pin' $crText `
+        $crText.Replace("$CrG`n", "$CrG`n| **Other Verbs** | E.g. x. | When a change adds a route. |`n") $CrWebOnlyCheck
+    Test-Pin "change-risk lenses carry their in-app, real-server, authorized-only and shell-tool framing" `
+        'change-risk lens is missing required framing' $CrFramingCheck $crText
+    Test-BreakIt 'break-it: After the Headers without real server fails the framing pin' $crText `
+        (Edit-CrRow $crText 'After the Headers' 'real server') $CrFramingCheck
+    Test-BreakIt 'break-it: Other Verbs without its authorized-only framing fails the framing pin' $crText `
+        (Edit-CrRow $crText 'Other Verbs' 'authorized testing of your own system only') $CrFramingCheck
+    Test-Pin 'Interrupt-style change-risk lenses offer no kill or network means' `
+        'Interrupt-style change-risk lens mentions killing or the network' $CrInterruptCheck $crText
+    Test-BreakIt 'break-it: Pull the Rug offering to kill the server fails its pin' $crText `
+        (Edit-CrRow $crText 'Pull the Rug' 'By in-app means only' 'By any means, even a server kill') $CrInterruptCheck
+    Test-Pin "heuristics documents the change-risk framing, limits and this edition's tool" `
+        'heuristics is missing change-risk wording' $CrNeedleCheck $crText
+    Test-BreakIt 'break-it: the shared Interrupt limits cut fails the wording pin' $crText `
+        $crText.Replace('**Pull the Rug and After the Headers share the Interrupt limits.**', '') $CrNeedleCheck
+    Test-Pin "heuristics names only this edition's shell tool and never follows a redirect" `
+        "heuristics names another edition's shell tool or a redirect-following curl" $CrToolCheck $crText
+    Test-BreakIt "break-it: another edition's shell tool fails the tool pin" $crText `
+        (Edit-CrRow $crText 'Leave No Trace' 'through `run_shell_command`' 'through `bash`') $CrToolCheck
+    Test-BreakIt 'break-it: a redirect-following curl fails the tool pin' $crText `
+        (Edit-CrRow $crText 'After the Headers' 'curl -q -sS -i' 'curl -q -sS -iL') $CrToolCheck
+    Test-Pin 'skills/heuristics/SKILL.md names no task identifier or project name' `
+        'skills/heuristics/SKILL.md leaks a task identifier or project name' $CrLeakCheck $crText
+    Test-Pin 'HEURISTICS.md names no task identifier or project name' `
+        'HEURISTICS.md leaks a task identifier or project name' $CrLeakCheck $crPage
+    Test-BreakIt 'break-it: a task identifier in a lens row fails the leak pin' $crText `
+        (Edit-CrRow $crText 'Every Surface' 'E.g. ' 'E.g. as in W2578, ') $CrLeakCheck
+} else {
+    Fail 'change-risk lens checks need skills/heuristics/SKILL.md and HEURISTICS.md' ''
 }
 
 # --- Root docs & license ----------------------------------------------------
