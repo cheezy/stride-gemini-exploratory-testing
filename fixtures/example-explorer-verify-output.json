@@ -1,5 +1,5 @@
 {
-  "contract_version": "1.0",
+  "contract_version": "1.1",
   "charter": "Explore the tenant check on the CSV receipt import with the bug's minimal_repro (import any CSV exported from <tenant B> while logged in as <tenant A>; one row is enough) to discover whether another tenant's rows are still accepted into <tenant A>'s receipt list and running total.",
   "status": "completed",
   "session_sheet": {
@@ -15,6 +15,7 @@
       "Post-import receipt list and running expense total"
     ],
     "heuristics_applied": ["Follow the Data", "Goldilocks"],
+    "surfaces_used": ["http"],
     "stop_reason": "charter_quiet"
   },
   "notes": [
