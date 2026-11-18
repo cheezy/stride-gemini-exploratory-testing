@@ -4,7 +4,7 @@
 # Confirms the extension's required files and directories exist and that the
 # gemini-extension.json manifest is valid JSON carrying name/version/
 # contextFileName. It also pins the explorer card in agents/explorer.md: its
-# markers and position after the safety boundary, a 4,096-byte cap, its
+# markers and position after the safety boundary, a 4,608-byte cap, its
 # severity values, order and ladder against bug-advocacy's four levels, its
 # stop rules against the output contract's stop_reason values, the RIMGEA,
 # oracle and edge-rule text, the pointers to the card, and the skill references'
@@ -65,6 +65,11 @@
 # --max-redirs 0 through run_shell_command and no other edition's tool, no
 # task-identifier or project-name leak, and every lens named in HEURISTICS.md,
 # each with a break-it.
+# And it pins the oracles skill's Adapter Is Not the Wire and Two Decision
+# Sites: one section each with an example, the unknown-never-found and
+# agree-in-every-state rules, no new reach, no task-identifier leak, one line
+# each inside the card markers, and the card's cap, severity values, order and
+# stop reasons unchanged, each with a break-it.
 #
 # Offline and read-only — it never executes or evaluates any extension file; it
 # checks existence, parses the manifest and the explorer JSON as data with
@@ -166,13 +171,15 @@ done
 # Every rule the explorer needs to rate a bug and end a session lives on an
 # inline card, because the extension's skills sit outside the workspace that
 # read_file resolves against and may never load. These pins keep the card in
-# place right after the safety boundary, under its 4,096-byte cap, in step with
+# place right after the safety boundary, under its 4,608-byte cap, in step with
 # bug-advocacy's four levels and with the output contract's stop_reason values,
 # and keep the skill references in their ${extensionPath} form. Comparisons are
 # byte-wise and case-sensitive (LC_ALL=C), matching test-structure.ps1, and
 # every message below is identical in both shells.
 
 printf '\nExplorer card\n'
+# The card's byte cap, read by P3 and by the wire and decision-site cap pin.
+CARD_CAP=4608
 
 EXPLORER="${PLUGIN_ROOT}/agents/explorer.md"
 ADVOCACY="${PLUGIN_ROOT}/skills/bug-advocacy/SKILL.md"
@@ -234,10 +241,13 @@ EOF
   fi
 
   # P3 — byte cap, measured as the marker range | wc -c (markers included).
-  if [ "$CARD_BYTES" -ge 1 ] && [ "$CARD_BYTES" -le 4096 ]; then
-    ok "explorer card is ${CARD_BYTES} bytes (limit 4096)"
+  # The cap was 4,096 until the wire and decision-site oracle lines took the
+  # card from 4,092 to 4,448 bytes, so it rose by 512 to 4,608. Keep new rules
+  # outside the card where they fit.
+  if [ "$CARD_BYTES" -ge 1 ] && [ "$CARD_BYTES" -le "$CARD_CAP" ]; then
+    ok "explorer card is ${CARD_BYTES} bytes (limit ${CARD_CAP})"
   else
-    nope "explorer card must be 1-4096 bytes" "measured ${CARD_BYTES} bytes"
+    nope "explorer card must be 1-${CARD_CAP} bytes" "measured ${CARD_BYTES} bytes"
   fi
 
   # P4 — severity: the card's value line, order line and ladder bullets each
@@ -2535,6 +2545,220 @@ if [ -f "$HEUR" ] && [ -f "$HEUR_PAGE" ]; then
     "$(cr_edit_row "$CR_TEXT" 'Every Surface' 'E.g. ' 'E.g. as in W2578, ')" cr_leak_problems
 else
   nope "change-risk lens checks need skills/heuristics/SKILL.md and HEURISTICS.md" ""
+fi
+
+# --- Wire and decision-site oracles -----------------------------------------
+#
+# Port of upstream W2579. Two named oracles: Adapter Is Not the Wire (an
+# in-process test adapter cannot establish wire behaviour, so an unconfirmed
+# wire claim goes under debrief.unknown, never found) and Two Decision Sites
+# (client and server deciding the same thing must agree in every state). Each
+# is exactly one section of skills/oracles/SKILL.md with an example, and
+# exactly one line inside the explorer-card markers, which must stay complete
+# without the skill. The safety section keeps wire confirmation inside the
+# authorized target, the skill leaks no task identifier or project name, and
+# the card keeps its byte cap, severity values, order and stop reasons. Each
+# pin is one check function and each break-it runs that same function on
+# altered text and must see it fail. Messages are identical in
+# test-structure.ps1.
+
+printf '\nWire and decision-site oracles\n'
+ORACLES="${PLUGIN_ROOT}/skills/oracles/SKILL.md"
+WO_NAMES=('Adapter Is Not the Wire' 'Two Decision Sites')
+WO_WIRE_SKILL=('in-process test adapter' 'streamed or chunked' '`HEAD`' 'connection aborts'
+  '`Content-Length`' 'real server' '`debrief.unknown`, never under `found`'
+  'grants no new reach' 'does not fire')
+WO_WIRE_CARD=('in-process test adapter' '`HEAD`' '`Content-Length`' 'real server'
+  '`debrief.unknown`, never `found`')
+WO_SITES_SKILL=('agree in every state' 'A disagreement is a finding' 'Acceptable' 'Defect')
+WO_SITES_CARD='agree in every state; a disagreement is a finding'
+WO_SAFETY='*Adapter Is Not the Wire* grants no new reach'
+WO_ENUM_LINES=(
+  '**Severity values (exact):** `Critical` | `High` | `Moderate` | `Minor`'
+  '**Severity order:** Critical > High > Moderate > Minor'
+)
+WO_STOPS='charter_quiet probe_budget_exhausted tool_call_ceiling risk_acceptable blocked no_observation_surface'
+WO_CAP="$CARD_CAP"
+
+# wo_section <text> <name> — the body of the "## <name>" section.
+wo_section() {
+  printf '%s\n' "$1" | HEAD="## $2" LC_ALL=C awk '
+    $0 == ENVIRON["HEAD"] { f = 1; next }
+    f && /^## / { f = 0 }
+    f'
+}
+
+# wo_card_text <explorer text> — the explorer card, markers included.
+wo_card_text() {
+  printf '%s\n' "$1" | LC_ALL=C awk '
+    /<!-- explorer-card:start -->/ { f = 1 }
+    f { print }
+    /<!-- explorer-card:end -->/ { f = 0 }'
+}
+
+# wo_card_line <card> <name> — card lines that begin with the bold oracle name.
+wo_card_line() {
+  printf '%s\n' "$1" | NAME="**$2.** " LC_ALL=C awk 'index($0, ENVIRON["NAME"]) == 1'
+}
+
+wo_heading_problems() {
+  local name n
+  for name in "${WO_NAMES[@]}"; do
+    n=$(cr_count "$(printf '%s\n' "$1" | LC_ALL=C grep -xF -e "## $name")")
+    [ "$n" = "1" ] || printf ' [%s: %s headings]' "$name" "$n"
+  done
+}
+
+wo_example_problems() {
+  local name
+  for name in "${WO_NAMES[@]}"; do
+    wo_section "$1" "$name" | LC_ALL=C grep -q '^\*Example:\* ' || printf ' [%s]' "$name"
+  done
+}
+
+wo_card_problems() {
+  local name n
+  for name in "${WO_NAMES[@]}"; do
+    n=$(cr_count "$(printf '%s\n' "$1" | LC_ALL=C grep -F -e "**$name.**")")
+    if [ "$n" != "1" ] || [ -z "$(wo_card_line "$1" "$name")" ]; then
+      printf ' [%s: %s lines]' "$name" "$n"
+    fi
+  done
+}
+
+wo_wire_problems() { missing_needles "$(wo_section "$1" 'Adapter Is Not the Wire')" "${WO_WIRE_SKILL[@]}"; }
+wo_wire_card_problems() { missing_needles "$(wo_card_line "$1" 'Adapter Is Not the Wire')" "${WO_WIRE_CARD[@]}"; }
+wo_sites_problems() { missing_needles "$(wo_section "$1" 'Two Decision Sites')" "${WO_SITES_SKILL[@]}"; }
+wo_sites_card_problems() { missing_needles "$(wo_card_line "$1" 'Two Decision Sites')" "$WO_SITES_CARD"; }
+wo_safety_problems() { missing_needles "$(wo_section "$1" 'Safety of oracle examples')" "$WO_SAFETY"; }
+
+# Measured like P3: the card's bytes with its final newline.
+wo_cap_problems() {
+  local bytes
+  bytes=$(printf '%s\n' "$1" | wc -c | tr -d ' ')
+  if [ "$bytes" -lt 1 ] || [ "$bytes" -gt "$WO_CAP" ]; then printf ' [measured %s bytes]' "$bytes"; fi
+}
+
+wo_enum_problems() {
+  local line stops
+  for line in "${WO_ENUM_LINES[@]}"; do
+    printf '%s\n' "$1" | LC_ALL=C grep -qxF -e "$line" || printf ' [%s]' "$line"
+  done
+  stops="$(printf '%s\n' "$1" | LC_ALL=C sed -n 's/^- `\([a-z_]*\)`: .*/\1/p' | tr '\n' ' ')"
+  stops="${stops% }"
+  [ "$stops" = "$WO_STOPS" ] || printf ' [stop reasons: %s]' "$stops"
+}
+
+# wo_replace <text> <cut> [<insert>] — <text> with every <cut> replaced.
+wo_replace() {
+  printf '%s\n' "$1" | CUT="$2" INS="${3:-}" LC_ALL=C awk '
+    BEGIN { c = ENVIRON["CUT"] }
+    { s = $0; o = ""
+      while ((i = index(s, c)) > 0) { o = o substr(s, 1, i - 1) ENVIRON["INS"]; s = substr(s, i + length(c)) }
+      print o s }'
+}
+
+# wo_edit_section <text> <name> <cut> [<insert>] — the same, inside one section.
+wo_edit_section() {
+  printf '%s\n' "$1" | HEAD="## $2" CUT="$3" INS="${4:-}" LC_ALL=C awk '
+    $0 == ENVIRON["HEAD"] { f = 1; print; next }
+    f && /^## / { f = 0 }
+    { if (f) {
+        s = $0; o = ""; c = ENVIRON["CUT"]
+        while ((i = index(s, c)) > 0) { o = o substr(s, 1, i - 1) ENVIRON["INS"]; s = substr(s, i + length(c)) }
+        print o s
+      } else print }'
+}
+
+# wo_edit_card_line <card> <name> <cut> [<insert>] — the same, in one card line.
+wo_edit_card_line() {
+  printf '%s\n' "$1" | NAME="**$2.** " CUT="$3" INS="${4:-}" LC_ALL=C awk '
+    { if (index($0, ENVIRON["NAME"]) == 1) {
+        s = $0; o = ""; c = ENVIRON["CUT"]
+        while ((i = index(s, c)) > 0) { o = o substr(s, 1, i - 1) ENVIRON["INS"]; s = substr(s, i + length(c)) }
+        print o s
+      } else print }'
+}
+
+# wo_drop_card_line <card> <name> — the card without the oracle's line.
+wo_drop_card_line() {
+  printf '%s\n' "$1" | NAME="**$2.** " LC_ALL=C awk 'index($0, ENVIRON["NAME"]) != 1'
+}
+
+# wo_move_out <explorer text> <name> — the oracle's line moved below the card.
+wo_move_out() {
+  printf '%s\n' "$1" | NAME="**$2.** " LC_ALL=C awk '
+    index($0, ENVIRON["NAME"]) == 1 { m = $0; next }
+    { print }
+    END { print m }'
+}
+
+if [ -f "$ORACLES" ] && [ -f "$EXPLORER" ]; then
+  WO_TEXT="$(tr -d '\r' < "$ORACLES")"
+  WO_DOC="$(tr -d '\r' < "$EXPLORER")"
+  WO_CARD="$(wo_card_text "$WO_DOC")"
+
+  pin_check "oracles skill defines Adapter Is Not the Wire and Two Decision Sites, once each" \
+    "oracles skill needs exactly one section for each wire and decision-site oracle" wo_heading_problems "$WO_TEXT"
+  break_it "break-it: a missing Adapter Is Not the Wire heading fails the heading pin" "$WO_TEXT" \
+    "$(cut_text "$WO_TEXT" '## Adapter Is Not the Wire')" wo_heading_problems
+  break_it "break-it: a second Two Decision Sites heading fails the heading pin" "$WO_TEXT" \
+    "$(printf '%s\n%s' "$WO_TEXT" '## Two Decision Sites')" wo_heading_problems
+  pin_check "each wire and decision-site oracle has an example" \
+    "a wire or decision-site oracle section has no *Example:* paragraph" wo_example_problems "$WO_TEXT"
+  break_it "break-it: Two Decision Sites without its example fails the example pin" "$WO_TEXT" \
+    "$(wo_edit_section "$WO_TEXT" 'Two Decision Sites' '*Example:* ')" wo_example_problems
+
+  pin_check "explorer card names each wire and decision-site oracle in one line, inside its markers" \
+    "explorer card needs exactly one line for each wire and decision-site oracle" wo_card_problems "$WO_CARD"
+  for name in "${WO_NAMES[@]}"; do
+    break_it "break-it: the card without its line fails the card pin: ${name}" "$WO_CARD" \
+      "$(wo_drop_card_line "$WO_CARD" "$name")" wo_card_problems
+  done
+  break_it "break-it: the wire line moved below the card markers fails the card pin" "$WO_CARD" \
+    "$(wo_card_text "$(wo_move_out "$WO_DOC" 'Adapter Is Not the Wire')")" wo_card_problems
+
+  pin_check "Adapter Is Not the Wire names the four wire behaviours and records an unconfirmed claim under debrief.unknown" \
+    "Adapter Is Not the Wire is missing required wording" wo_wire_problems "$WO_TEXT"
+  break_it "break-it: a wire claim recorded under found fails the wire pin" "$WO_TEXT" \
+    "$(wo_edit_section "$WO_TEXT" 'Adapter Is Not the Wire' '`debrief.unknown`, never under `found`' '`found`')" wo_wire_problems
+  pin_check "card wire line records an unconfirmed claim under debrief.unknown, never found" \
+    "card wire line is missing required wording" wo_wire_card_problems "$WO_CARD"
+  break_it "break-it: the card wire line recording the claim under found fails its pin" "$WO_CARD" \
+    "$(wo_edit_card_line "$WO_CARD" 'Adapter Is Not the Wire' '`debrief.unknown`, never `found`' '`found`')" wo_wire_card_problems
+
+  pin_check "Two Decision Sites requires agreement in every state and names its verdicts" \
+    "Two Decision Sites is missing required wording" wo_sites_problems "$WO_TEXT"
+  break_it "break-it: Two Decision Sites without agree in every state fails its pin" "$WO_TEXT" \
+    "$(wo_edit_section "$WO_TEXT" 'Two Decision Sites' 'agree in every state')" wo_sites_problems
+  pin_check "card decision-sites line says both sites must agree in every state" \
+    "card decision-sites line is missing its rule" wo_sites_card_problems "$WO_CARD"
+  break_it "break-it: the card decision-sites line without its rule fails its pin" "$WO_CARD" \
+    "$(wo_edit_card_line "$WO_CARD" 'Two Decision Sites' 'agree in every state; ')" wo_sites_card_problems
+
+  pin_check "oracles safety section keeps wire confirmation inside the authorized target" \
+    "oracles safety section is missing the no-new-reach sentence" wo_safety_problems "$WO_TEXT"
+  break_it "break-it: the safety section without the no-new-reach sentence fails its pin" "$WO_TEXT" \
+    "$(cut_text "$WO_TEXT" "$WO_SAFETY")" wo_safety_problems
+  pin_check "skills/oracles/SKILL.md names no task identifier or project name" \
+    "skills/oracles/SKILL.md leaks a task identifier or project name" cr_leak_problems "$WO_TEXT"
+  break_it "break-it: a task identifier in an oracle example fails the leak pin" "$WO_TEXT" \
+    "$(wo_edit_section "$WO_TEXT" 'Two Decision Sites' '*Example:* ' '*Example:* as in W2579, ')" cr_leak_problems
+
+  pin_check "explorer card with the oracle lines stays within its ${WO_CAP}-byte cap" \
+    "explorer card exceeds its byte cap" wo_cap_problems "$WO_CARD"
+  break_it "break-it: a card over its byte cap fails the cap pin" "$WO_CARD" \
+    "$(printf '%s\n%*s' "$WO_CARD" "$WO_CAP" '')" wo_cap_problems
+  pin_check "explorer card severity values, order and stop reasons are unchanged" \
+    "explorer card severity values, order or stop reasons changed" wo_enum_problems "$WO_CARD"
+  break_it "break-it: a renamed severity value fails the unchanged pin" "$WO_CARD" \
+    "$(wo_replace "$WO_CARD" '`Moderate` | `Minor`' '`Moderate` | `Low`')" wo_enum_problems
+  break_it "break-it: a reordered severity order fails the unchanged pin" "$WO_CARD" \
+    "$(wo_replace "$WO_CARD" 'Critical > High' 'High > Critical')" wo_enum_problems
+  break_it "break-it: a renamed stop reason fails the unchanged pin" "$WO_CARD" \
+    "$(wo_replace "$WO_CARD" '- `risk_acceptable`: ' '- `risk_ok`: ')" wo_enum_problems
+else
+  nope "wire and decision-site oracle checks need skills/oracles/SKILL.md and agents/explorer.md" ""
 fi
 
 # --- Root docs & license ----------------------------------------------------

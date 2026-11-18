@@ -5,7 +5,7 @@
 # gemini-extension.json manifest is valid JSON carrying name/version/
 # contextFileName. It also pins the explorer card in agents/explorer.md, check
 # for check with test-structure.sh: its markers and position after the safety
-# boundary, a 4,096-byte cap, its severity values, order and ladder against
+# boundary, a 4,608-byte cap, its severity values, order and ladder against
 # bug-advocacy's four levels, its stop rules against the output contract's
 # stop_reason values, the RIMGEA, oracle and edge-rule text, the pointers to
 # the card, and the skill references' extensionPath form (no other template
@@ -66,6 +66,11 @@
 # --max-redirs 0 through run_shell_command and no other edition's tool, no
 # task-identifier or project-name leak, and every lens named in HEURISTICS.md,
 # each with a break-it.
+# And it pins the oracles skill's Adapter Is Not the Wire and Two Decision
+# Sites: one section each with an example, the unknown-never-found and
+# agree-in-every-state rules, no new reach, no task-identifier leak, one line
+# each inside the card markers, and the card's cap, severity values, order and
+# stop reasons unchanged, each with a break-it.
 #
 # Offline and read-only — it never executes or evaluates any extension file; it
 # checks existence, parses the manifest and the explorer JSON as data with
@@ -177,7 +182,7 @@ foreach ($agent in @('charter-generator', 'explorer')) {
 # inline card, because the extension's skills sit outside the workspace that
 # read_file resolves against and may never load. These pins mirror
 # test-structure.sh check for check, with the same messages: the card's
-# markers and position after the safety boundary, its 4,096-byte cap, its
+# markers and position after the safety boundary, its 4,608-byte cap, its
 # severity values against bug-advocacy's four levels, its stop rules against
 # the output contract, and the skill references' extensionPath form.
 # Comparisons are ordinal and case-sensitive (-ceq / -cne / Ordinal), never
@@ -185,6 +190,8 @@ foreach ($agent in @('charter-generator', 'explorer')) {
 
 Write-Host ''
 Write-Host 'Explorer card'
+# The card's byte cap, read by P3 and by the wire and decision-site cap pin.
+$CardCap = 4608
 
 function Read-Lines([string]$path) {
     # Split on LF only and keep any CR, so byte counts match sed -n | wc -c.
@@ -269,12 +276,15 @@ if ((Test-Path -LiteralPath $Explorer -PathType Leaf) -and (Test-Path -LiteralPa
     }
 
     # P3 - byte cap, measured as the marker range | wc -c (markers included).
+    # The cap was 4,096 until the wire and decision-site oracle lines took the
+    # card from 4,092 to 4,448 bytes, so it rose by 512 to 4,608. Keep new rules
+    # outside the card where they fit.
     $cardBytes = 0
     foreach ($l in $card) { $cardBytes += [Text.Encoding]::UTF8.GetByteCount($l) + 1 }
-    if ($cardBytes -ge 1 -and $cardBytes -le 4096) {
-        Pass "explorer card is $cardBytes bytes (limit 4096)"
+    if ($cardBytes -ge 1 -and $cardBytes -le $CardCap) {
+        Pass "explorer card is $cardBytes bytes (limit $CardCap)"
     } else {
-        Fail 'explorer card must be 1-4096 bytes' "measured $cardBytes bytes"
+        Fail "explorer card must be 1-$CardCap bytes" "measured $cardBytes bytes"
     }
 
     # P4 - severity: the card's value line, order line and ladder bullets each
@@ -2767,6 +2777,229 @@ if ((Test-Path -LiteralPath $Heur -PathType Leaf) -and (Test-Path -LiteralPath $
         (Edit-CrRow $crText 'Every Surface' 'E.g. ' 'E.g. as in W2578, ') $CrLeakCheck
 } else {
     Fail 'change-risk lens checks need skills/heuristics/SKILL.md and HEURISTICS.md' ''
+}
+
+# --- Wire and decision-site oracles -----------------------------------------
+#
+# Mirror of the bash section, a port of upstream W2579. Two named oracles:
+# Adapter Is Not the Wire (an in-process test adapter cannot establish wire
+# behaviour, so an unconfirmed wire claim goes under debrief.unknown, never
+# found) and Two Decision Sites (client and server deciding the same thing
+# must agree in every state). Each is exactly one section of
+# skills/oracles/SKILL.md with an example, and exactly one line inside the
+# explorer-card markers, which must stay complete without the skill. The
+# safety section keeps wire confirmation inside the authorized target, the
+# skill leaks no task identifier or project name, and the card keeps its byte
+# cap, severity values, order and stop reasons. Each pin is one check
+# scriptblock and each break-it runs that same check on altered text and must
+# see it fail. Comparisons are ordinal and case-sensitive like grep -F.
+# Messages are identical to test-structure.sh.
+
+Write-Host ''
+Write-Host 'Wire and decision-site oracles'
+$Oracles = Join-Path $PluginRoot 'skills/oracles/SKILL.md'
+$WoNames = @('Adapter Is Not the Wire', 'Two Decision Sites')
+$WoWireSkill = @('in-process test adapter', 'streamed or chunked', '`HEAD`', 'connection aborts',
+    '`Content-Length`', 'real server', '`debrief.unknown`, never under `found`',
+    'grants no new reach', 'does not fire')
+$WoWireCard = @('in-process test adapter', '`HEAD`', '`Content-Length`', 'real server',
+    '`debrief.unknown`, never `found`')
+$WoSitesSkill = @('agree in every state', 'A disagreement is a finding', 'Acceptable', 'Defect')
+$WoSitesCard = 'agree in every state; a disagreement is a finding'
+$WoSafety = '*Adapter Is Not the Wire* grants no new reach'
+$WoEnumLines = @(
+    '**Severity values (exact):** `Critical` | `High` | `Moderate` | `Minor`',
+    '**Severity order:** Critical > High > Moderate > Minor'
+)
+$WoStops = 'charter_quiet probe_budget_exhausted tool_call_ceiling risk_acceptable blocked no_observation_surface'
+$WoCap = $CardCap
+
+# Get-WoSection: the body of the "## <name>" section.
+function Get-WoSection([string]$t, [string]$name) {
+    $head = "## $name"; $f = $false
+    $out = foreach ($l in ($t -split "`n")) {
+        if ($l -ceq $head) { $f = $true; continue }
+        if ($f -and $l.StartsWith('## ', [StringComparison]::Ordinal)) { $f = $false }
+        if ($f) { $l }
+    }
+    return (@($out) -join "`n")
+}
+
+# Get-WoCardText: the explorer card, markers included.
+function Get-WoCardText([string]$doc) {
+    $f = $false
+    $out = foreach ($l in ($doc -split "`n")) {
+        if ($l.Contains('<!-- explorer-card:start -->')) { $f = $true }
+        if ($f) { $l }
+        if ($l.Contains('<!-- explorer-card:end -->')) { $f = $false }
+    }
+    return (@($out) -join "`n")
+}
+
+# Get-WoCardLines: card lines that begin with the bold oracle name.
+function Get-WoCardLines([string]$card, [string]$name) {
+    $lead = "**$name.** "
+    return @(($card -split "`n") | Where-Object { $_.StartsWith($lead, [StringComparison]::Ordinal) })
+}
+
+$WoHeadingCheck = {
+    param([string]$t)
+    $out = ''
+    foreach ($name in $WoNames) {
+        $n = @(($t -split "`n") | Where-Object { $_ -ceq "## $name" }).Count
+        if ($n -ne 1) { $out += " [${name}: $n headings]" }
+    }
+    return $out
+}
+
+$WoExampleCheck = {
+    param([string]$t)
+    $out = ''
+    foreach ($name in $WoNames) {
+        $hits = @(((Get-WoSection $t $name) -split "`n") | Where-Object { $_.StartsWith('*Example:* ', [StringComparison]::Ordinal) }).Count
+        if ($hits -eq 0) { $out += " [$name]" }
+    }
+    return $out
+}
+
+$WoCardCheck = {
+    param([string]$t)
+    $out = ''
+    foreach ($name in $WoNames) {
+        $n = @(($t -split "`n") | Where-Object { $_.Contains("**$name.**") }).Count
+        if ($n -ne 1 -or @(Get-WoCardLines $t $name).Count -eq 0) { $out += " [${name}: $n lines]" }
+    }
+    return $out
+}
+
+$WoWireCheck = { param([string]$t) return (Get-MissingNeedles (Get-WoSection $t 'Adapter Is Not the Wire') $WoWireSkill) }
+$WoWireCardCheck = { param([string]$t) return (Get-MissingNeedles (@(Get-WoCardLines $t 'Adapter Is Not the Wire') -join "`n") $WoWireCard) }
+$WoSitesCheck = { param([string]$t) return (Get-MissingNeedles (Get-WoSection $t 'Two Decision Sites') $WoSitesSkill) }
+$WoSitesCardCheck = { param([string]$t) return (Get-MissingNeedles (@(Get-WoCardLines $t 'Two Decision Sites') -join "`n") @($WoSitesCard)) }
+$WoSafetyCheck = { param([string]$t) return (Get-MissingNeedles (Get-WoSection $t 'Safety of oracle examples') @($WoSafety)) }
+
+# Measured like P3: the card's bytes with its final newline.
+$WoCapCheck = {
+    param([string]$t)
+    $bytes = [Text.Encoding]::UTF8.GetByteCount($t) + 1
+    if ($bytes -ge 1 -and $bytes -le $WoCap) { return '' }
+    return " [measured $bytes bytes]"
+}
+
+$WoEnumCheck = {
+    param([string]$t)
+    $out = ''
+    $lines = $t -split "`n"
+    foreach ($line in $WoEnumLines) {
+        if (@($lines | Where-Object { $_ -ceq $line }).Count -eq 0) { $out += " [$line]" }
+    }
+    $stops = @(foreach ($l in $lines) { if ($l -cmatch '^- `([a-z_]*)`: ') { $Matches[1] } }) -join ' '
+    if ($stops -cne $WoStops) { $out += " [stop reasons: $stops]" }
+    return $out
+}
+
+# Edit-WoSection: the text with $cut replaced by $insert inside one section.
+function Edit-WoSection([string]$t, [string]$name, [string]$cut, [string]$insert = '') {
+    $head = "## $name"; $f = $false
+    $out = foreach ($l in ($t -split "`n")) {
+        if ($l -ceq $head) { $f = $true; $l; continue }
+        if ($f -and $l.StartsWith('## ', [StringComparison]::Ordinal)) { $f = $false }
+        if ($f) { $l.Replace($cut, $insert) } else { $l }
+    }
+    return ($out -join "`n")
+}
+
+# Edit-WoCardLine: the same, in the oracle's card line only.
+function Edit-WoCardLine([string]$t, [string]$name, [string]$cut, [string]$insert = '') {
+    $lead = "**$name.** "
+    $out = foreach ($l in ($t -split "`n")) {
+        if ($l.StartsWith($lead, [StringComparison]::Ordinal)) { $l.Replace($cut, $insert) } else { $l }
+    }
+    return ($out -join "`n")
+}
+
+# Remove-WoCardLine: the card without the oracle's line.
+function Remove-WoCardLine([string]$t, [string]$name) {
+    $lead = "**$name.** "
+    return (@(($t -split "`n") | Where-Object { -not $_.StartsWith($lead, [StringComparison]::Ordinal) }) -join "`n")
+}
+
+# Move-WoCardLine: the explorer text with the oracle's line moved below the card.
+function Move-WoCardLine([string]$doc, [string]$name) {
+    $lead = "**$name.** "; $moved = ''
+    $out = foreach ($l in ($doc -split "`n")) {
+        if ($l.StartsWith($lead, [StringComparison]::Ordinal)) { $moved = $l; continue }
+        $l
+    }
+    return ((@($out) + $moved) -join "`n")
+}
+
+if ((Test-Path -LiteralPath $Oracles -PathType Leaf) -and (Test-Path -LiteralPath $Explorer -PathType Leaf)) {
+    $woText = Read-Text $Oracles
+    $woDoc = Read-Text $Explorer
+    $woCard = Get-WoCardText $woDoc
+
+    Test-Pin 'oracles skill defines Adapter Is Not the Wire and Two Decision Sites, once each' `
+        'oracles skill needs exactly one section for each wire and decision-site oracle' $WoHeadingCheck $woText
+    Test-BreakIt 'break-it: a missing Adapter Is Not the Wire heading fails the heading pin' $woText `
+        $woText.Replace('## Adapter Is Not the Wire', '') $WoHeadingCheck
+    Test-BreakIt 'break-it: a second Two Decision Sites heading fails the heading pin' $woText `
+        ($woText + "`n## Two Decision Sites") $WoHeadingCheck
+    Test-Pin 'each wire and decision-site oracle has an example' `
+        'a wire or decision-site oracle section has no *Example:* paragraph' $WoExampleCheck $woText
+    Test-BreakIt 'break-it: Two Decision Sites without its example fails the example pin' $woText `
+        (Edit-WoSection $woText 'Two Decision Sites' '*Example:* ') $WoExampleCheck
+
+    Test-Pin 'explorer card names each wire and decision-site oracle in one line, inside its markers' `
+        'explorer card needs exactly one line for each wire and decision-site oracle' $WoCardCheck $woCard
+    foreach ($name in $WoNames) {
+        Test-BreakIt "break-it: the card without its line fails the card pin: $name" $woCard `
+            (Remove-WoCardLine $woCard $name) $WoCardCheck
+    }
+    Test-BreakIt 'break-it: the wire line moved below the card markers fails the card pin' $woCard `
+        (Get-WoCardText (Move-WoCardLine $woDoc 'Adapter Is Not the Wire')) $WoCardCheck
+
+    Test-Pin 'Adapter Is Not the Wire names the four wire behaviours and records an unconfirmed claim under debrief.unknown' `
+        'Adapter Is Not the Wire is missing required wording' $WoWireCheck $woText
+    Test-BreakIt 'break-it: a wire claim recorded under found fails the wire pin' $woText `
+        (Edit-WoSection $woText 'Adapter Is Not the Wire' '`debrief.unknown`, never under `found`' '`found`') $WoWireCheck
+    Test-Pin 'card wire line records an unconfirmed claim under debrief.unknown, never found' `
+        'card wire line is missing required wording' $WoWireCardCheck $woCard
+    Test-BreakIt 'break-it: the card wire line recording the claim under found fails its pin' $woCard `
+        (Edit-WoCardLine $woCard 'Adapter Is Not the Wire' '`debrief.unknown`, never `found`' '`found`') $WoWireCardCheck
+
+    Test-Pin 'Two Decision Sites requires agreement in every state and names its verdicts' `
+        'Two Decision Sites is missing required wording' $WoSitesCheck $woText
+    Test-BreakIt 'break-it: Two Decision Sites without agree in every state fails its pin' $woText `
+        (Edit-WoSection $woText 'Two Decision Sites' 'agree in every state') $WoSitesCheck
+    Test-Pin 'card decision-sites line says both sites must agree in every state' `
+        'card decision-sites line is missing its rule' $WoSitesCardCheck $woCard
+    Test-BreakIt 'break-it: the card decision-sites line without its rule fails its pin' $woCard `
+        (Edit-WoCardLine $woCard 'Two Decision Sites' 'agree in every state; ') $WoSitesCardCheck
+
+    Test-Pin 'oracles safety section keeps wire confirmation inside the authorized target' `
+        'oracles safety section is missing the no-new-reach sentence' $WoSafetyCheck $woText
+    Test-BreakIt 'break-it: the safety section without the no-new-reach sentence fails its pin' $woText `
+        $woText.Replace($WoSafety, '') $WoSafetyCheck
+    Test-Pin 'skills/oracles/SKILL.md names no task identifier or project name' `
+        'skills/oracles/SKILL.md leaks a task identifier or project name' $CrLeakCheck $woText
+    Test-BreakIt 'break-it: a task identifier in an oracle example fails the leak pin' $woText `
+        (Edit-WoSection $woText 'Two Decision Sites' '*Example:* ' '*Example:* as in W2579, ') $CrLeakCheck
+
+    Test-Pin "explorer card with the oracle lines stays within its $WoCap-byte cap" `
+        'explorer card exceeds its byte cap' $WoCapCheck $woCard
+    Test-BreakIt 'break-it: a card over its byte cap fails the cap pin' $woCard `
+        ($woCard + "`n" + (' ' * $WoCap)) $WoCapCheck
+    Test-Pin 'explorer card severity values, order and stop reasons are unchanged' `
+        'explorer card severity values, order or stop reasons changed' $WoEnumCheck $woCard
+    Test-BreakIt 'break-it: a renamed severity value fails the unchanged pin' $woCard `
+        $woCard.Replace('`Moderate` | `Minor`', '`Moderate` | `Low`') $WoEnumCheck
+    Test-BreakIt 'break-it: a reordered severity order fails the unchanged pin' $woCard `
+        $woCard.Replace('Critical > High', 'High > Critical') $WoEnumCheck
+    Test-BreakIt 'break-it: a renamed stop reason fails the unchanged pin' $woCard `
+        $woCard.Replace('- `risk_acceptable`: ', '- `risk_ok`: ') $WoEnumCheck
+} else {
+    Fail 'wire and decision-site oracle checks need skills/oracles/SKILL.md and agents/explorer.md' ''
 }
 
 # --- Root docs & license ----------------------------------------------------
